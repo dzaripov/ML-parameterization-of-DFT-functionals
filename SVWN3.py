@@ -93,3 +93,6 @@ def lda_x_spin(rs, z):
 def f_slater(rho):
     rs, z = rs_z_calc(rho)
     return f_lda_x(rs, z)
+
+def f_svwn3(rho):
+    return f_slater(rho) + f_vwn3(rho)

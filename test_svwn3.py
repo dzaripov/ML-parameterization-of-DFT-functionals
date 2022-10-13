@@ -1,4 +1,4 @@
-from SVWN3 import f_slater, f_vwn3
+from SVWN3 import f_svwn3
 import pylibxc as xc
 import numpy as np
 
@@ -18,8 +18,6 @@ if __name__ == "__main__":
     for i in range(100):
         data = np.random.random((2))
         exc_libxc_slater, exc_libxc_vwn3 = calc_fxc(data)
-        exc_my_slater = f_slater(data)
-        exc_my_vwn3 = f_vwn3(data)
         exc_libxc = exc_libxc_slater + exc_libxc_vwn3
-        exc_my = exc_my_slater + exc_my_vwn3
+        exc_my = f_svwn3(data)
         print(exc_libxc-exc_my)

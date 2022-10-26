@@ -11,7 +11,7 @@ from tqdm.auto import tqdm
 # from tqdm.notebook import tqdm
 from SVWN3 import f_svwn3
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
-
+from NN_models import NN_2_256, NN_8_256, NN_8_64
 
 with h5py.File('C6H6_mgae109.h5', "r") as f:
   y = np.array(f["ener"][:])
@@ -76,28 +76,7 @@ test_dataloader = torch.utils.data.DataLoader(test_set,
                                             batch_size=BATCH_SIZE) #, num_workers=4) #, num_workers=1
 
 
-class MLOptimizer(nn.Module):
-    def __init__(self, nconstants):
-        super().__init__()
-
-        self.nconstants = nconstants
-        self.hidden_layers = nn.Sequential(
-                                nn.Linear(7, 256),
-                                nn.BatchNorm1d(256),
-                                nn.LeakyReLU(),
-                                nn.Dropout(p=0.3),
-                                nn.Linear(256, 256),
-                                nn.BatchNorm1d(256),
-                                nn.LeakyReLU(),
-                                nn.Dropout(p=0.3),
-                                nn.Linear(256, nconstants)
-                            )
-    def forward(self, x):
-        x = self.hidden_layers(x)
-        # x = f_svwn3(x)
-        return x
-
-model = MLOptimizer(nconstants=nconstants).to(device)
+model = NN_2_256().to(device)
 model.load_state_dict(torch.load('predoptimized_1.param'))
 
 optimizer = torch.optim.Adam(model.parameters(), lr=3e-4, betas=(0.9, 0.999))

@@ -24,8 +24,8 @@ class MLOptimizer(nn.Module):
 
     def forward(self, x):
         x = self.hidden_layers(x)
-        
-        x = f_svwn3(x)
+
+        # x = f_svwn3(x)
         return x
 
 

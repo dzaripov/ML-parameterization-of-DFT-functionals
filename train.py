@@ -12,29 +12,15 @@ from SVWN3 import f_svwn3
 from sklearn.preprocessing import StandardScaler
 from NN_models import NN_2_256, NN_8_256, NN_8_64
 
+
 with h5py.File('C6H6_mgae109.h5', "r") as f:
-  y = np.array(f["ener"][:])
-  X_raw = np.array(f["grid"][:])
+    y = np.array(f["ener"][:])
+    X_raw = np.array(f["grid"][:])
 
 X = X_raw[:, 4:-1]
 train_size = int(X.shape[0] * 0.8)
 X_train = X[:train_size]
 X_test = X[train_size:]
-
-y_train_dist = [0.0310907, 0.01554535, 
-                3.72744,   7.06042,
-                12.9352,   18.0578,
-                -0.10498,  -0.32500,
-                0.0310907,  0.01554535,  -1/(6*np.pi**2),
-                13.0720,    20.1231,      1.06835,
-                42.7198,   101.578,      11.4813,
-                -0.409286,  -0.743294,   -0.228344,
-                1]
-
-nconstants = len(y_train_dist)
-
-y_train = np.log1p(np.tile(y_train_dist, [X_train.shape[0],1]))
-y_test = np.log1p(np.tile(y_train_dist, [X_test.shape[0],1]))
 
 
 scaler = StandardScaler()

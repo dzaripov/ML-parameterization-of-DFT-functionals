@@ -10,7 +10,7 @@ import random
 from tqdm.auto import tqdm
 # from tqdm.notebook import tqdm
 from SVWN3 import f_svwn3
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
+from sklearn.preprocessing import StandardScaler, FunctionTransformer
 from NN_models import NN_2_256, NN_8_256, NN_8_64
 
 with h5py.File('C6H6_mgae109.h5', "r") as f:
@@ -34,12 +34,15 @@ y_train_dist = [0.0310907, 0.01554535,
 
 nconstants = len(y_train_dist)
 
-y_train = np.tile(y_train_dist, [X_train.shape[0],1])
-y_test = np.tile(y_train_dist, [X_test.shape[0],1])
+y_train = np.log1p(np.tile(y_train_dist, [X_train.shape[0],1]))
+y_test = np.log1p(np.tile(y_train_dist, [X_test.shape[0],1]))
 
 
 scaler = StandardScaler()
+X_train = np.log1p(X_train)
 X_train = scaler.fit_transform(X_train)
+
+X_test = np.log1p(X_test)
 X_test = scaler.transform(X_test)
 
 def set_random_seed(seed):
@@ -76,8 +79,8 @@ test_dataloader = torch.utils.data.DataLoader(test_set,
                                             batch_size=BATCH_SIZE) #, num_workers=4) #, num_workers=1
 
 
-model = NN_2_256().to(device)
-model.load_state_dict(torch.load('predoptimized_1.param'))
+model = NN_8_64().to(device)
+# model.load_state_dict(torch.load('predoptimized_3.param'))
 
 optimizer = torch.optim.Adam(model.parameters(), lr=3e-4, betas=(0.9, 0.999))
 criterion = nn.MSELoss()
@@ -109,6 +112,7 @@ def train(model, criterion, optimizer, scheduler, train_loader, test_loader, n_e
             loss.backward() # обновляем градиенты
             optimizer.step() # делаем шаг градиентного спуска 
             optimizer.zero_grad()
+            # print(predictions, y_batch)
             train_mse_losses_per_epoch.append(loss.item())
             train_mae_losses_per_epoch.append(mean_absolute_error(predictions.cpu().detach(), y_batch.cpu().detach()))
         train_loss_mse.append(np.mean(train_mse_losses_per_epoch))
@@ -128,10 +132,10 @@ def train(model, criterion, optimizer, scheduler, train_loader, test_loader, n_e
                 test_mae_losses_per_epoch.append(mean_absolute_error(preds.cpu().detach(), y_batch.cpu().detach()))
         test_loss_mse.append(np.mean(test_mse_losses_per_epoch))
         test_loss_mae.append(np.mean(test_mae_losses_per_epoch))
-        print(f'train RMSE Loss = {train_loss_mse[epoch] ** 0.5:.4f}')
-        print(f'train MAE Loss = {train_loss_mae[epoch]:.4f}')
-        print(f'test RMSE Loss = {test_loss_mse[epoch] ** 0.5:.4f}')
-        print(f'test MAE Loss = {test_loss_mae[epoch]:.4f}')
+        print(f'train RMSE Loss = {train_loss_mse[epoch] ** 0.5:.8f}')
+        print(f'train MAE Loss = {train_loss_mae[epoch]:.8f}')
+        print(f'test RMSE Loss = {test_loss_mse[epoch] ** 0.5:.8f}')
+        print(f'test MAE Loss = {test_loss_mae[epoch]:.8f}')
 
     scheduler.step()
     return train_loss_mse, train_loss_mae, test_loss_mse, test_loss_mae, preds[0].cpu().detach().numpy()
@@ -143,10 +147,10 @@ def train(model, criterion, optimizer, scheduler, train_loader, test_loader, n_e
 
 train_loss_mse, train_loss_mae, test_loss_mse, test_loss_mae, preds = train(model, criterion, optimizer, 
                                                                             scheduler, train_dataloader,
-                                                                            test_dataloader, n_epochs=40)
+                                                                            test_dataloader, n_epochs=200)
 
 # print(train_loss_mse, train_loss_mae, test_loss_mse, test_loss_mae)
-print('predicted coef', '\n', preds)
+print('predicted coef', '\n',np.expm1(preds))
 print('exact coef', '\n', np.array(y_train_dist))
 
-torch.save(model.state_dict(), 'predoptimized_1.param')
+torch.save(model.state_dict(), 'predoptimized_3.param')

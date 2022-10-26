@@ -8,15 +8,15 @@ class MLOptimizer(nn.Module):
         self.nconstants = nconstants
         self.num_layers = num_layers
         modules = []
-        modules.append(nn.Linear(7, h_dim),
-                       nn.BatchNorm1d(h_dim),
-                       nn.LeakyReLU(),
-                       nn.Dropout(p=0.1))
+        modules.extend([nn.Linear(7, h_dim),
+                        nn.BatchNorm1d(h_dim),
+                        nn.LeakyReLU(),
+                        nn.Dropout(p=0.1)])
         for _ in range(num_layers-1):
-            modules.append(nn.Linear(h_dim, h_dim),
-                           nn.BatchNorm1d(h_dim),
-                           nn.LeakyReLU(),
-                           nn.Dropout(p=0.2))
+            modules.extend([nn.Linear(h_dim, h_dim),
+                            nn.BatchNorm1d(h_dim),
+                            nn.LeakyReLU(),
+                            nn.Dropout(p=0.2)])
         modules.append(nn.Linear(h_dim, nconstants))
 
         self.hidden_layers = nn.Sequential(*modules)

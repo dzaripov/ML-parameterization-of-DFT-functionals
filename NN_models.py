@@ -24,13 +24,18 @@ class MLOptimizer(nn.Module):
 
     def forward(self, x):
         x = self.hidden_layers(x)
-        # x = f_svwn3(x)
+        
+        x = f_svwn3(x)
         return x
 
 
 def NN_2_256(num_layers=2, h_dim=256, nconstants=21):
     return MLOptimizer(num_layers, h_dim, nconstants)
+
+
 def NN_8_256(num_layers=8, h_dim=256, nconstants=21):
     return MLOptimizer(num_layers, h_dim, nconstants)
+
+
 def NN_8_64(num_layers=8, h_dim=64, nconstants=21):
     return MLOptimizer(num_layers, h_dim, nconstants)

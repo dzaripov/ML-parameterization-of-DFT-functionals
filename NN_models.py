@@ -1,5 +1,5 @@
-from SVWN3 import f_svwn3
 from torch import nn
+
 
 class MLOptimizer(nn.Module):
     def __init__(self, num_layers, h_dim, nconstants):
@@ -24,8 +24,6 @@ class MLOptimizer(nn.Module):
 
     def forward(self, x):
         x = self.hidden_layers(x)
-
-        # x = f_svwn3(x)
         return x
 
 

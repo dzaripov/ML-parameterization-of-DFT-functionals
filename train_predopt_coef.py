@@ -13,8 +13,8 @@ from sklearn.preprocessing import StandardScaler
 from NN_models import NN_2_256, NN_8_256, NN_8_64
 
 with h5py.File('C6H6_mgae109.h5', "r") as f:
-  y = np.array(f["ener"][:])
-  X_raw = np.array(f["grid"][:])
+    y = np.array(f["ener"][:])
+    X_raw = np.array(f["grid"][:])
 
 X = X_raw[:, 4:-1]
 train_size = int(X.shape[0] * 0.8)

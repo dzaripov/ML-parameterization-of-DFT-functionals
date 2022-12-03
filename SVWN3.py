@@ -17,7 +17,12 @@ fpp_vwn = 4/(9*(2**(1/3) - 1))
 
 
 def Q_vwn(b, c):
-    return torch.sqrt(4*c - b**2)
+    torch.set_printoptions(precision=25)
+    x = 4*c - b**2
+    if torch.sqrt(x).isnan().any():
+        torch.save(x, 'tensor_sqrt.pt')
+    
+    return torch.sqrt(abs(4*c - b**2))
 
 
 def f1_vwn(b, c):
@@ -44,6 +49,21 @@ def opz_pow_n(z, n):
 
 
 def f_aux(A, b, c, x0, rs):
+    part1 = (f1_vwn(b, c) - f2_vwn(b, c, x0)*f3_vwn(b, c, x0)) * torch.arctan(Q_vwn(b, c)/(2*torch.sqrt(rs) + b))
+    f_vwn = (f1_vwn(b, c) - f2_vwn(b, c, x0)*f3_vwn(b, c, x0))
+    arc = torch.arctan(Q_vwn(b, c)/(2*torch.sqrt(rs) + b))
+    Q = Q_vwn(b, c)
+    arc_arg = Q_vwn(b, c)/(2*torch.sqrt(rs) + b)
+    torch.set_printoptions(precision=25)
+    if part1.isnan().any():
+        torch.save(part1, 'tensor_faux_part1.pt')
+        torch.save(f_vwn, 'tensor_faux_vwn.pt')
+        torch.save(arc, 'tensor_faux_arc.pt')
+        torch.save(Q, 'tensor_faux_Q.pt')
+        torch.save(arc_arg, 'tensor_faux_arc_arg.pt')
+        torch.save(b, 'tensor_faux_b.pt')
+        torch.save(c, 'tensor_faux_c.pt')
+    print(1)
     return A*(
     + torch.log(rs/fx_vwn(b, c, rs))
     + (f1_vwn(b, c) - f2_vwn(b, c, x0)*f3_vwn(b, c, x0))
@@ -52,30 +72,34 @@ def f_aux(A, b, c, x0, rs):
 
 
 def DMC(rs, z, c_arr):
-    return f_aux(c_arr[0:2][1], c_arr[2:4][1], c_arr[4:6][1], c_arr[6:8][1], rs) \
-    - f_aux(c_arr[0:2][0], c_arr[2:4][0], c_arr[4:6][0], c_arr[6:8][0], rs)
+    return f_aux(c_arr[:,0:2][:,1], c_arr[:,2:4][:,1], c_arr[:,4:6][:,1], c_arr[:,6:8][:,1], rs) \
+    - f_aux(c_arr[:,0:2][:,0], c_arr[:,2:4][:,0], c_arr[:,4:6][:,0], c_arr[:,6:8][:,0], rs)
 
 
 def DRPA(rs, z, c_arr):
-    return f_aux(c_arr[8:11][1], c_arr[11:14][1], c_arr[14:17][1], c_arr[17:20][1], rs) \
-    - f_aux(c_arr[8:11][0], c_arr[11:14][0], c_arr[14:17][0], c_arr[17:20][0], rs)
+    return f_aux(c_arr[:,8:11][:,1], c_arr[:,11:14][:,1], c_arr[:,14:17][:,1], c_arr[:,17:20][:,1], rs) \
+    - f_aux(c_arr[:,8:11][:,0], c_arr[:,11:14][:,0], c_arr[:,14:17][:,0], c_arr[:,17:20][:,0], rs)
 
 #VWN3
 
 
 def f_zeta(z): # - power threshold
+    x = ((1 + z)**(4/3) + (1 - z)**(4/3) - 2)/(2**(4/3) - 2)
+    torch.set_printoptions(precision=50)    
+    if x.isnan().any():
+        torch.save(x, 'tensor_fzeta.pt')
     return ((1 + z)**(4/3) + (1 - z)**(4/3) - 2)/(2**(4/3) - 2)
 
 
 def f_vwn(rs, z, c_arr):
-    return f_aux(c_arr[0:2][0], c_arr[2:4][0], c_arr[4:6][0], c_arr[6:8][0], rs) \
-    + DMC(rs, z, c_arr)/DRPA(rs, z, c_arr)*f_aux(c_arr[8:11][2], c_arr[11:14][2], c_arr[14:17][2], c_arr[17:20][2], rs) \
+    return f_aux(c_arr[:,0:2][:,0], c_arr[:,2:4][:,0], c_arr[:,4:6][:,0], c_arr[:,6:8][:,0], rs) \
+    + DMC(rs, z, c_arr)/DRPA(rs, z, c_arr)*f_aux(c_arr[:,8:11][:,2], c_arr[:,11:14][:,2], c_arr[:,14:17][:,2], c_arr[:,17:20][:,2], rs) \
     * f_zeta(z)*(1 - z**4)/fpp_vwn + DMC(rs, z, c_arr)*f_zeta(z)*z**4
 
 
 def rs_z_calc(rho):
-    rs = (3/((rho[0] + rho[1]) * (4 * torch.pi))) ** (1/3)
-    z = (rho[0] - rho[1]) / (rho[0] + rho[1])
+    rs = (3/((rho[:,0] + rho[:,1]) * (4 * torch.pi))) ** (1/3)
+    z = (rho[:,0] - rho[:,1]) / (rho[:,0] + rho[:,1])
     return rs, z
 
 
@@ -93,7 +117,7 @@ DIMENSIONS = 3
 
 
 def f_lda_x(rs, z, c_arr): # - screen_dens threshold
-    return c_arr[20]*lda_x_spin(rs, z) + c_arr[20]*lda_x_spin(rs, -z)
+    return c_arr[:,20]*lda_x_spin(rs, z) + c_arr[:,20]*lda_x_spin(rs, -z)
 
 
 def lda_x_spin(rs, z):
@@ -106,5 +130,27 @@ def f_slater(rho, c_arr):
 
 
 def f_svwn3(rho, c_arr):
-    '''rho.shape = (2, 1)'''
+    '''
+    rho.shape = (x, 2)
+    c_arr.shape = (x, 21)
+    '''
     return f_slater(rho, c_arr) + f_vwn3(rho, c_arr)
+
+
+if __name__ == '__main__':
+    constants_10 = torch.tile(torch.Tensor(
+    [0.0310907, 0.01554535, 
+                3.72744,   7.06042,
+                12.9352,   18.0578,
+                -0.10498,  -0.32500,
+                0.0310907,  0.01554535,  -1/(6*torch.pi**2),
+                13.0720,    20.1231,      1.06835,
+                42.7198,   101.578,      11.4813,
+                -0.409286,  -0.743294,   -0.228344,
+                1]
+    ), (10,1))
+
+    rho = torch.tile(torch.Tensor(
+    [0.3111, 0.0000]), (10,1))
+    
+    print(f_svwn3(rho, constants_10))

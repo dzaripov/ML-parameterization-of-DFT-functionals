@@ -1,6 +1,7 @@
 from SVWN3 import f_svwn3
 import pylibxc as xc
 import numpy as np
+import torch
 
 def calc_fxc(grid): #LDA_C_VWN_3 and "LDA_X"
     func_slater = xc.LibXCFunctional("LDA_X", "polarized")
@@ -16,8 +17,9 @@ def calc_fxc(grid): #LDA_C_VWN_3 and "LDA_X"
 
 if __name__ == "__main__":
     for i in range(100):
-        data = np.random.random((2))
+        # data = np.random.random((2))
+        data = np.array([0,0])
         exc_libxc_slater, exc_libxc_vwn3 = calc_fxc(data)
         exc_libxc = exc_libxc_slater + exc_libxc_vwn3
-        exc_my = f_svwn3(data)
-        print(exc_libxc-exc_my)
+        # exc_my = f_svwn3(data)
+        print(exc_libxc)

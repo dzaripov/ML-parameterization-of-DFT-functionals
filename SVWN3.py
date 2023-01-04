@@ -10,102 +10,122 @@ import torch
 #     return {labels[i]: values[i] for i in range(len(labels))}
 
 
+def catch_nan(**kwargs):
+    nan_detected = False
+    inf_detected = False
+    for k, v in kwargs.items():
+        if v.isnan().any():
+            print(f'{k} is NaN')
+            nan_detected = True
+        if v.isinf().any():
+            print(f'{k} is inf')
+            inf_detected = True            
+        
+    if nan_detected != False:
+        for k, v in kwargs.items():
+            torch.set_printoptions(precision=25)
+            torch.save(v, f'{k}.pt')
+        raise ValueError('NaN detected')
+    if inf_detected != False:
+        for k, v in kwargs.items():
+            torch.set_printoptions(precision=25)
+            torch.save(v, f'{k}.pt')
+        raise ValueError('infinity detected')
+    
 #VWN
-p_a_zeta_threshold = 1e-15
-
 fpp_vwn = 4/(9*(2**(1/3) - 1))
 
 
 def Q_vwn(b, c):
-    torch.set_printoptions(precision=25)
-    x = 4*c - b**2
-    if torch.sqrt(x).isnan().any():
-        torch.save(x, 'tensor_sqrt.pt')
-    
-    return torch.sqrt(abs(4*c - b**2))
+    Q = 4*c - b**2
+    x = torch.sqrt(Q)
+    catch_nan(b=b, c=c, x=x)
+    return x
 
 
 def f1_vwn(b, c):
-    return 2*b/Q_vwn(b, c)
+    x = 2*b/Q_vwn(b, c)
+    catch_nan(x=x)
+    return x
 
 
 def f2_vwn(b, c, x0):
-    return b*x0/(x0**2 + b*x0 + c)
+    x = b*x0/(x0**2 + b*x0 + c)
+    catch_nan(x=x, x0=x0)
+    return x
 
 
 def f3_vwn(b, c, x0):
-    return 2*(2*x0 + b)/Q_vwn(b, c)
+    x = 2*(2*x0 + b)/Q_vwn(b, c)
+    catch_nan(x=x)
+    return x
 
 
 def fx_vwn(b, c, rs):
-    return rs + b*torch.sqrt(rs) + c
-
-
-def opz_pow_n(z, n):
-    if 1 + z <= p_a_zeta_threshold:
-        return (p_a_zeta_threshold)^n
-    else:
-        return (1+z)**n
+    x = rs + b*torch.sqrt(rs) + c
+    catch_nan(x=x)
+    return x
 
 
 def f_aux(A, b, c, x0, rs):
-    part1 = (f1_vwn(b, c) - f2_vwn(b, c, x0)*f3_vwn(b, c, x0)) * torch.arctan(Q_vwn(b, c)/(2*torch.sqrt(rs) + b))
+    log = torch.log(rs/fx_vwn(b, c, rs))
+    log_arg = rs/fx_vwn(b, c, rs)
     f_vwn = (f1_vwn(b, c) - f2_vwn(b, c, x0)*f3_vwn(b, c, x0))
-    arc = torch.arctan(Q_vwn(b, c)/(2*torch.sqrt(rs) + b))
-    Q = Q_vwn(b, c)
     arc_arg = Q_vwn(b, c)/(2*torch.sqrt(rs) + b)
-    torch.set_printoptions(precision=25)
-    if part1.isnan().any():
-        torch.save(part1, 'tensor_faux_part1.pt')
-        torch.save(f_vwn, 'tensor_faux_vwn.pt')
-        torch.save(arc, 'tensor_faux_arc.pt')
-        torch.save(Q, 'tensor_faux_Q.pt')
-        torch.save(arc_arg, 'tensor_faux_arc_arg.pt')
-        torch.save(b, 'tensor_faux_b.pt')
-        torch.save(c, 'tensor_faux_c.pt')
-    print(1)
-    return A*(
-    + torch.log(rs/fx_vwn(b, c, rs))
-    + (f1_vwn(b, c) - f2_vwn(b, c, x0)*f3_vwn(b, c, x0))
-    * torch.arctan(Q_vwn(b, c)/(2*torch.sqrt(rs) + b))
-    - f2_vwn(b, c, x0)*torch.log((torch.sqrt(rs) - x0)**2/fx_vwn(b, c, rs)))
+    arc = torch.arctan(arc_arg)
+    part1 = f_vwn * arc
+    log2 = torch.log((torch.sqrt(rs) - x0)**2/fx_vwn(b, c, rs))
+    last_part = f2_vwn(b, c, x0)*log2
+    
+    x = A*(log + part1 - last_part)
+    
+    catch_nan(A=A, log=log, log_arg=log_arg, f_vwn=f_vwn, arc_arg=arc_arg,
+              arc=arc, part1=part1, log2=log2, last_part=last_part)
+    return x
 
 
 def DMC(rs, z, c_arr):
-    return f_aux(c_arr[:,0:2][:,1], c_arr[:,2:4][:,1], c_arr[:,4:6][:,1], c_arr[:,6:8][:,1], rs) \
+    x = f_aux(c_arr[:,0:2][:,1], c_arr[:,2:4][:,1], c_arr[:,4:6][:,1], c_arr[:,6:8][:,1], rs) \
     - f_aux(c_arr[:,0:2][:,0], c_arr[:,2:4][:,0], c_arr[:,4:6][:,0], c_arr[:,6:8][:,0], rs)
+    catch_nan(x=x)
+    return x
 
 
 def DRPA(rs, z, c_arr):
-    return f_aux(c_arr[:,8:11][:,1], c_arr[:,11:14][:,1], c_arr[:,14:17][:,1], c_arr[:,17:20][:,1], rs) \
+    x = f_aux(c_arr[:,8:11][:,1], c_arr[:,11:14][:,1], c_arr[:,14:17][:,1], c_arr[:,17:20][:,1], rs) \
     - f_aux(c_arr[:,8:11][:,0], c_arr[:,11:14][:,0], c_arr[:,14:17][:,0], c_arr[:,17:20][:,0], rs)
+    catch_nan(x=x)
+    return x
 
 #VWN3
 
 
 def f_zeta(z): # - power threshold
-    x = ((1 + z)**(4/3) + (1 - z)**(4/3) - 2)/(2**(4/3) - 2)
-    torch.set_printoptions(precision=50)    
-    if x.isnan().any():
-        torch.save(x, 'tensor_fzeta.pt')
-    return ((1 + z)**(4/3) + (1 - z)**(4/3) - 2)/(2**(4/3) - 2)
+    x = ((1 + z)**(4/3) + (1 - z)**(4/3) - 2)/(2**(4/3) - 2)    
+    catch_nan(x=x)
+    return x
 
 
 def f_vwn(rs, z, c_arr):
-    return f_aux(c_arr[:,0:2][:,0], c_arr[:,2:4][:,0], c_arr[:,4:6][:,0], c_arr[:,6:8][:,0], rs) \
-    + DMC(rs, z, c_arr)/DRPA(rs, z, c_arr)*f_aux(c_arr[:,8:11][:,2], c_arr[:,11:14][:,2], c_arr[:,14:17][:,2], c_arr[:,17:20][:,2], rs) \
-    * f_zeta(z)*(1 - z**4)/fpp_vwn + DMC(rs, z, c_arr)*f_zeta(z)*z**4
+    aux1 = f_aux(c_arr[:,0:2][:,0], c_arr[:,2:4][:,0], c_arr[:,4:6][:,0], c_arr[:,6:8][:,0], rs)
+    dmc = DMC(rs, z, c_arr)
+    drpa = DRPA(rs, z, c_arr)
+    aux2 = f_aux(c_arr[:,8:11][:,2], c_arr[:,11:14][:,2], c_arr[:,14:17][:,2], c_arr[:,17:20][:,2], rs)
+    zeta = f_zeta(z)
+    x = aux1 \
+    + torch.nan_to_num(dmc/drpa)*aux2 \
+    * zeta*(1 - z**4)/fpp_vwn + dmc*zeta*z**4
+    catch_nan(aux1=aux1, dmc=dmc, drpa=drpa, aux2=aux2, zeta=zeta, x=x, z=z)
+    return x
 
 
 def rs_z_calc(rho):
-    rs = (3/((rho[:,0] + rho[:,1]) * (4 * torch.pi))) ** (1/3)
-    z = (rho[:,0] - rho[:,1]) / (rho[:,0] + rho[:,1])
+    eps = 1e-29
+    rs = (3/((rho[:,0] + rho[:,1] + eps) * (4 * torch.pi))) ** (1/3)
+    z = (rho[:,0] - rho[:,1]) / (rho[:,0] + rho[:,1] + eps)
+    catch_nan(rs=rs, z=z)
     return rs, z
 
-
-def f_vwn3(rho, c_arr):
-    rs, z = rs_z_calc(rho)
-    return f_vwn(rs, z, c_arr)
 
 
 #SLATER
@@ -117,16 +137,15 @@ DIMENSIONS = 3
 
 
 def f_lda_x(rs, z, c_arr): # - screen_dens threshold
-    return c_arr[:,20]*lda_x_spin(rs, z) + c_arr[:,20]*lda_x_spin(rs, -z)
+    x = c_arr[:,20]*lda_x_spin(rs, z) + c_arr[:,20]*lda_x_spin(rs, -z)
+    catch_nan(x=x)
+    return x
 
 
 def lda_x_spin(rs, z):
-    return LDA_X_FACTOR*(z+1)**(1 + 1/DIMENSIONS)*2**(-1-1/DIMENSIONS)*(RS_FACTOR/rs)
-
-
-def f_slater(rho, c_arr):
-    rs, z = rs_z_calc(rho)
-    return f_lda_x(rs, z, c_arr)
+    x = LDA_X_FACTOR*(z+1)**(1 + 1/DIMENSIONS)*2**(-1-1/DIMENSIONS)*(RS_FACTOR/rs)
+    catch_nan(x=x)
+    return x
 
 
 def f_svwn3(rho, c_arr):
@@ -134,7 +153,9 @@ def f_svwn3(rho, c_arr):
     rho.shape = (x, 2)
     c_arr.shape = (x, 21)
     '''
-    return f_slater(rho, c_arr) + f_vwn3(rho, c_arr)
+    catch_nan(rho=rho, c_arr=c_arr)
+    rs, z = rs_z_calc(rho)
+    return f_lda_x(rs, z, c_arr) + f_vwn(rs, z, c_arr)
 
 
 if __name__ == '__main__':

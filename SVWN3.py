@@ -1,5 +1,5 @@
-import numpy as np
 import torch
+from utils import catch_nan
 
 
 # def constants_naming(c_arr):
@@ -9,31 +9,9 @@ import torch
     
 #     return {labels[i]: values[i] for i in range(len(labels))}
 
-
-def catch_nan(**kwargs):
-    nan_detected = False
-    inf_detected = False
-    for k, v in kwargs.items():
-        if v.isnan().any():
-            print(f'{k} is NaN')
-            nan_detected = True
-        if v.isinf().any():
-            print(f'{k} is inf')
-            inf_detected = True            
-        
-    if nan_detected != False:
-        for k, v in kwargs.items():
-            torch.set_printoptions(precision=25)
-            torch.save(v, f'{k}.pt')
-        raise ValueError('NaN detected')
-    if inf_detected != False:
-        for k, v in kwargs.items():
-            torch.set_printoptions(precision=25)
-            torch.save(v, f'{k}.pt')
-        raise ValueError('infinity detected')
     
 #VWN
-fpp_vwn = 4/(9*(2**(1/3) - 1))
+fpp_vwn = 4/(9*(2**(1/3) - 1)) # true constant from theory or parametrization parameter????
 
 
 def Q_vwn(b, c):
@@ -68,13 +46,14 @@ def fx_vwn(b, c, rs):
 
 
 def f_aux(A, b, c, x0, rs):
-    log = torch.log(rs/fx_vwn(b, c, rs))
     log_arg = rs/fx_vwn(b, c, rs)
+    log = torch.log(log_arg)
     f_vwn = (f1_vwn(b, c) - f2_vwn(b, c, x0)*f3_vwn(b, c, x0))
     arc_arg = Q_vwn(b, c)/(2*torch.sqrt(rs) + b)
     arc = torch.arctan(arc_arg)
     part1 = f_vwn * arc
-    log2 = torch.log((torch.sqrt(rs) - x0)**2/fx_vwn(b, c, rs))
+    log2_arg = (torch.sqrt(rs) - x0)**2/fx_vwn(b, c, rs)
+    log2 = torch.log(log2_arg)
     last_part = f2_vwn(b, c, x0)*log2
     
     x = A*(log + part1 - last_part)
@@ -130,7 +109,7 @@ def rs_z_calc(rho):
 
 #SLATER
 
-LDA_X_FACTOR = -3/8*(3/torch.pi)**(1/3)*4**(2/3)
+LDA_X_FACTOR = -3/8*(3/torch.pi)**(1/3)*4**(2/3) # param
 RS_FACTOR = (3/(4*torch.pi))**(1/3)
 DIMENSIONS = 3
 
@@ -164,7 +143,7 @@ if __name__ == '__main__':
                 3.72744,   7.06042,
                 12.9352,   18.0578,
                 -0.10498,  -0.32500,
-                0.0310907,  0.01554535,  -1/(6*torch.pi**2),
+                0.0310907,  0.01554535,  -1/(6*3.1415926**2),
                 13.0720,    20.1231,      1.06835,
                 42.7198,   101.578,      11.4813,
                 -0.409286,  -0.743294,   -0.228344,
@@ -172,6 +151,6 @@ if __name__ == '__main__':
     ), (10,1))
 
     rho = torch.tile(torch.Tensor(
-    [0.3111, 0.0000]), (10,1))
+    [0.3000, 0.0000]), (10,1))
     
     print(f_svwn3(rho, constants_10))

@@ -120,11 +120,13 @@ def get_h5_names(reaction):
     return names
 
 
-def add_reaction_info_from_h5(reaction):
+def add_reaction_info_from_h5(reaction, path):
     '''
     reaction must be from get_compounds_coefs_energy
     returns merged descriptos array X, integration weights, 
     a and b densities and indexes for backsplitting
+    Values are filtered based on density vanishing
+    (rho[0] !~ 0 & rho[1] !~ 0)
     
     Adds the following information to the reaction dict using h5 files from the dataset:
     Grid : np.array with grid descriptors
@@ -133,23 +135,27 @@ def add_reaction_info_from_h5(reaction):
     HF_energies : list of Total HF energy (T+V) which needs to be added to E_xc
     backsplit_ind: list of indexes where we concatenate molecules' grids
     '''
+    eps = 1e-29
     X = np.array([])
     backsplit_ind = []
     HF_energies = np.array([])
     for component_filename in get_h5_names(reaction):
-        with h5py.File(f'data/{component_filename}', "r") as f:
+        with h5py.File(f'{path}/{component_filename}', "r") as f:
             HF_energies = np.append(HF_energies, f["ener"][:][0])
             X_raw = np.array(f["grid"][:])
             if len(X) == 0:
                 X = X_raw[:, 3:-1]
             else:
                 X = np.vstack((X, X_raw[:, 3:-1]))
+            X = X[np.logical_or((X[:, 1] > eps), (X[:, 2] > eps))] # energy of both alpha and beta density equal zero will be zero
             backsplit_ind.append(len(X)) # add indexes of molecules start/end
-    densities = X[:, 1:3] # get the densities
     weights = X[:,0] # get the integral weights
+    densities = X[:, 1:3] # get the densities
+    sigmas = X[:, 3:6] # get the contracted gradients
+
     X = X[:, 1:] # get the grid descriptors
     
-    # sigma_a_b to norm_grad=sigma_a + sigma_b + 2*sigma_a_b
+    # sigma_a_b to norm_grad=sigma_a + sigma_b + 2*sigma_a_b to get positive descriptor for log-transformation
     X[:, 3] = X[:, 2] + X[:, 4] + 2*X[:, 3]
     
     # log grid data
@@ -158,8 +164,8 @@ def add_reaction_info_from_h5(reaction):
     
     backsplit_ind = np.array(backsplit_ind)
     
-    labels = ['Grid', 'Weights', 'Densities', 'HF_energies', 'backsplit_ind']
-    values = [X, weights, densities, HF_energies, backsplit_ind]
+    labels = ['Grid', 'Weights', 'Densities', 'Gradients', 'HF_energies', 'backsplit_ind']
+    values = [X, weights, densities, sigmas, HF_energies, backsplit_ind]
     for label, value in zip(labels, values):
         reaction[label] = torch.Tensor(value)
 
@@ -174,6 +180,6 @@ def make_reactions_dict(path=None):
     '''
     data = get_compounds_coefs_energy(load_component_names(path), load_ref_energies(path))
     for i in data.keys():
-        data[i] = add_reaction_info_from_h5(data[i])
+        data[i] = add_reaction_info_from_h5(data[i], path)
 
     return data

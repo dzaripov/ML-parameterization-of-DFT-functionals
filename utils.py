@@ -22,3 +22,8 @@ def catch_nan(**kwargs):
             torch.set_printoptions(precision=25)
             torch.save(v, f'log/{k}.pt')
         raise ValueError('infinity detected')
+
+def save_tensors(**kwargs):
+    for k, v in kwargs.items():
+        torch.set_printoptions(precision=25)
+        torch.save(v, f'log/{k}.pt')

@@ -53,13 +53,17 @@ class MLOptimizer(nn.Module):
             x = torch.cat([x[:,0:4], torch.stack(constants[0:2], dim=1), x[:,6:14], torch.stack(constants[2:], dim=1), x[:,17:]], dim=1)
             del constants
         if self.DFT == 'PBE':
-            constants = torch.abs(x[:, 0:24]) + 1e-5
-            x = torch.cat([constants, x[:, 24:27]], dim=1) 
+            constants = torch.abs(x[:, 0:21]) + 1e-5
+            x = torch.cat([constants, x[:, 21:24]], dim=1) 
             del constants
         return x
 
 
 def NN_2_256(num_layers=2, h_dim=256, nconstants=None, DFT=None):
+    return MLOptimizer(num_layers, h_dim, nconstants, DFT)
+
+
+def NN_4_256(num_layers=4, h_dim=256, nconstants=None, DFT=None):
     return MLOptimizer(num_layers, h_dim, nconstants, DFT)
 
 

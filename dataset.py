@@ -135,7 +135,7 @@ def add_reaction_info_from_h5(reaction, path):
     HF_energies : list of Total HF energy (T+V) which needs to be added to E_xc
     backsplit_ind: list of indexes where we concatenate molecules' grids
     '''
-    eps = 1e-29
+    eps = 1e-27
     X = np.array([])
     backsplit_ind = []
     HF_energies = np.array([])
@@ -152,10 +152,11 @@ def add_reaction_info_from_h5(reaction, path):
     weights = X[:,0] # get the integral weights
     densities = X[:, 1:3] # get the densities
     sigmas = X[:, 3:6] # get the contracted gradients
-
+    
     X = X[:, 1:] # get the grid descriptors
     
     # sigma_a_b to norm_grad=sigma_a + sigma_b + 2*sigma_a_b to get positive descriptor for log-transformation
+    X = np.copy(X)
     X[:, 3] = X[:, 2] + X[:, 4] + 2*X[:, 3]
     
     # log grid data

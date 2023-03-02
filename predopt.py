@@ -5,6 +5,52 @@ from sklearn.metrics import mean_absolute_error
 import numpy as np
 
 
+true_constants_SVWN = [0.0310907, 0.01554535, 
+            3.72744,   7.06042,
+            12.9352,   18.0578,
+            -0.10498,  -0.32500,
+            0.0310907,  0.01554535,  -1/(6*np.pi**2),
+            13.0720,    20.1231,      1.06835,
+            42.7198,   101.578,      11.4813,
+            -0.409286,  -0.743294,   -0.228344,
+            1]
+
+true_constants_PBE = torch.Tensor([[0.06672455060314922,
+       (1 - torch.log(torch.Tensor([2])))/(torch.pi**2),
+       1.709921,
+       7.5957, 14.1189, 10.357,
+       3.5876, 6.1977, 3.6231,
+       1.6382, 3.3662,  0.88026,
+       0.49294, 0.62517, 0.49671,
+       # 1,  1,  1,
+       0.031091, 0.015545, 0.016887,
+       0.21370,  0.20548,  0.11125,
+       -3/8*(3/torch.pi)**(1/3)*4**(2/3),
+       0.8040,
+       0.2195149727645171]])
+
+
+class DatasetPredopt(torch.utils.data.Dataset):
+    def __init__(self, data, dft):
+        self.data = data
+        self.dft = dft
+        
+    def __getitem__(self, i):
+        # i = 0
+        self.data[i].pop('Database', None)
+        if self.dft=='PBE':
+            y_single = true_constants_PBE
+        elif self.dft=='SVWN3':
+            y_single = true_constants_SVWN
+        
+        return self.data[i], y_single 
+    
+    def __len__(self):
+        return len(self.data.keys())
+
+
+
+
 def predopt(model, criterion, optimizer, train_loader, device, n_epochs=2, accum_iter=4):
     
     train_loss_mse = []

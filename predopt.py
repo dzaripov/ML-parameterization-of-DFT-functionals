@@ -62,7 +62,10 @@ def predopt(model, criterion, optimizer, train_loader, device, n_epochs=2, accum
     for epoch in range(n_epochs):
         print('Epoch', epoch+1)
         # train
-        model.train()
+        # model.train()
+        
+        # delete dropout in predopt
+        model.eval()
 
 
         train_mse_losses_per_epoch = []

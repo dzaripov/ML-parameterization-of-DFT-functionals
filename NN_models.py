@@ -2,6 +2,22 @@ from torch import nn
 import torch
 
 
+device = torch.device('cuda:0') if torch.cuda.is_available else torch.device('cpu')
+true_constants_PBE = torch.Tensor([[0.06672455,
+                                    (1 - torch.log(torch.Tensor([2])))/(torch.pi**2),
+                                    1.709921,
+                                    7.5957, 14.1189, 10.357,
+                                    3.5876, 6.1977, 3.6231,
+                                    1.6382, 3.3662,  0.88026,
+                                    0.49294, 0.62517, 0.49671,
+                                    # 1,  1,  1,
+                                    0.031091, 0.015545, 0.016887,
+                                    0.21370,  0.20548,  0.11125,
+                                    -3/8*(3/torch.pi)**(1/3)*4**(2/3),
+                                    0.8040,
+                                    0.2195149727645171]]).to(device)
+
+
 """
 Define an nn.Module class for a simple residual block with equal dimensions
 """
@@ -40,6 +56,7 @@ class MLOptimizer(nn.Module):
             modules.append(ResBlock(h_dim))
             
         modules.append(nn.Linear(h_dim, nconstants, bias=True))
+        modules.append(nn.Sigmoid())
 
         self.hidden_layers = nn.Sequential(*modules)
 
@@ -53,9 +70,8 @@ class MLOptimizer(nn.Module):
             x = torch.cat([x[:,0:4], torch.stack(constants[0:2], dim=1), x[:,6:14], torch.stack(constants[2:], dim=1), x[:,17:]], dim=1)
             del constants
         if self.DFT == 'PBE':
-            constants = torch.abs(x[:, 0:21]) + 1e-5
-            x = torch.cat([constants, x[:, 21:24]], dim=1) 
-            del constants
+            ''' Scale constants for easier prediction (and take absolute value for constants) '''
+            x = torch.abs(x) * true_constants_PBE
         return x
 
 
@@ -74,6 +90,9 @@ def NN_8_256(num_layers=8, h_dim=256, nconstants=None, DFT=None):
 def NN_8_64(num_layers=8, h_dim=64, nconstants=None, DFT=None):
     return MLOptimizer(num_layers, h_dim, nconstants, DFT)
 
+
+def NN_4_128(num_layers=4, h_dim=128, nconstants=None, DFT=None):
+    return MLOptimizer(num_layers, h_dim, nconstants, DFT)
 
 
 class ResBlockTest(nn.Module):
@@ -123,8 +142,8 @@ class MLOptimizerTest(nn.Module):
             x = torch.cat([x[:,0:4], torch.stack(constants[0:2], dim=1), x[:,6:14], torch.stack(constants[2:], dim=1), x[:,17:]], dim=1)
             del constants
         if self.DFT == 'PBE':
-            constants = torch.abs(x[:, 3:24]) + 1e-5
-            x = torch.cat([x[:, 0:3], constants, x[:, 24:27]], dim=1) 
+            constants = torch.abs(x[:, 0:24]) + 1e-5
+            x = torch.cat([constants, x[:, 24:27]], dim=1) 
             del constants
         return x
 

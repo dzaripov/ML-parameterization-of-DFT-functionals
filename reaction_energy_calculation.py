@@ -1,13 +1,10 @@
 import numpy as np
 import torch
 from SVWN3 import f_svwn3
-from PBE import F_PBE, pw_test
-from importlib import reload
-from PBE_new import F_PBE_new
-import PBE_new
-reload(PBE_new)
-import PBE
-reload(PBE)
+from PBE import F_PBE
+# from importlib import reload
+# import PBE
+# reload(PBE)
 import pickle
 
 

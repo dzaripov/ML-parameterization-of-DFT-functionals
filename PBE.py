@@ -6,16 +6,16 @@ from utils import catch_nan, save_tensors
 # c_arr[:, 0] equals mbeta 
 # c_arr[:, 1] equals mgamma 
 # c_arr[:, 2] equals fz20  # maybe negative?
-# c_arr[:, 3:6] equal params_a_beta1 
+# c_arr[:, 3:6] equal params_a_beta1
 # c_arr[:, 6:9] equal params_a_beta2
-# c_arr[:, 9:12] equal params_a_beta3 
+# c_arr[:, 9:12] equal params_a_beta3
 # c_arr[:, 12:15] equal params_a_beta4 
 # c_arr[:, 15:18] equal params_a_a 
 # c_arr[:, 18:21] equal params_a_alpha1
 
 
 #mbeta  = 0.06672455060314922
-#mgamma = (1 - torch.log(torch.Tensor([2])))/(torch.pi**2)
+#mgamma = (1 - torch.log(torch.Tensor([2])))/(torch.pi**2) = 0.0310906916856765747070312
 #fz20   = 1.709920934161365617563962776245
 #params_a_beta1  = [7.5957, 14.1189, 10.357]
 #params_a_beta2  = [3.5876, 6.1977, 3.6231]
@@ -132,7 +132,7 @@ def f1(rs, z, t, A_, c_arr):
 
 
 def f2(rs, z, t, c_arr):
-    eps = 1e-29
+    eps = 1e-10
     A_ = A(rs, z, t, c_arr)
     f1_ = f1(rs, z, t, A_, c_arr)
     res_f2 = c_arr[:, 0]*f1_/(c_arr[:, 1]*(A_*f1_+1) + eps)
@@ -141,9 +141,11 @@ def f2(rs, z, t, c_arr):
 
 
 def fH(rs, z, t, c_arr):
-    log = torch.log1p(f2(rs, z, t, c_arr))
+    eps = 10e-6
+    f2_ = f2(rs, z, t, c_arr)
+    log = torch.where(f2_ <= -1, torch.log1p(f2_ + eps), torch.log1p(f2_)) # weird infinity
     res_fH = c_arr[:, 1]*mphi(z)**3*log
-    catch_nan(res_fH=res_fH, log=log)
+    catch_nan(res_fH=res_fH, log=log, f2_=f2_)
     return res_fH
 
 
@@ -207,6 +209,7 @@ def PBE_X(rs, z, xt, xs0, xs1, c_arr):
     return res_PBE_X
 
 
+# @torch.compile
 def F_PBE(rho, sigmas, c_arr):
     catch_nan(rho=rho, sigmas=sigmas, c_arr=c_arr)
     rs, z = rs_z_calc(rho)

@@ -32,20 +32,10 @@ from utils import catch_nan, save_tensors
 def z_thr(zeta):
     return zeta
 
-    # device = 'cuda:0'
-    # eps = torch.Tensor([1e-10]).to(device)
-#     print(eps.device)
-#     print(zeta.device)
-#     print(zeta <= eps)
-    
-    # zeta = zeta.type(torch.FloatTensor)
-    # return torch.where(zeta <= eps, eps, torch.where(zeta >= 1 - eps, 1- eps, zeta))
-
 
 def rs_z_calc(rho):
     rs = (3/((rho[:,0] + rho[:,1]) * (4 * torch.pi))) ** (1/3)
     z = z_thr((rho[:,0] - rho[:,1]) / (rho[:,0] + rho[:,1]))
-    # z = torch.Tensor([0])
     catch_nan(rs=rs, z=z)
     return rs, z
 
@@ -59,13 +49,7 @@ def xs_xt_calc(rho, sigmas):     # sigma 1 is alpha beta contracted gradient
                       torch.sqrt(sigmas[:,0])/rho[:,0]**(1 + 1/DIMENSIONS), 
                       torch.sqrt(sigmas[:,2])/rho[:,1]**(1 + 1/DIMENSIONS))
     xt  = torch.sqrt(sigmas[:,0] + 2*sigmas[:,1] + sigmas[:,2])/(rho[:,0] + rho[:,1])**(1 + 1/DIMENSIONS)
-    
-    
-#     # #unpolarized
-#     xs0 = torch.sqrt(sigmas[:,0]/4)/(rho[:,0]/2)**(1 + 1/DIMENSIONS)
-#     xs1 = xs0
-#     xt  = torch.sqrt(sigmas[:,0])/(rho[:,0])**(1 + 1/DIMENSIONS)
-    
+
     catch_nan(rho=rho, sigmas=sigmas, xs0=xs0, xs1=xs1, xt=xt)
     return xs0, xs1, xt
 
@@ -90,8 +74,6 @@ def tt(rs, z, xt):
 
 def g_aux(k, rs, c_arr):
     res_g_aux = c_arr[:, 3:6][:, k]*torch.sqrt(rs) + c_arr[:, 6:9][:, k]*rs + c_arr[:, 9:12][:, k]*rs**1.5 + c_arr[:, 12:15][:, k]*rs**2
-    # 2 = (c_arr[:, 15:18][:, k] + 1)
-    # c_arr[:, 15:18] = [1, 1, 1]
     catch_nan(res_g_aux=res_g_aux, rs=rs, c_arr=c_arr)
     return res_g_aux
 
@@ -214,8 +196,6 @@ def F_PBE(rho, sigmas, c_arr):
     catch_nan(rho=rho, sigmas=sigmas, c_arr=c_arr)
     rs, z = rs_z_calc(rho)
     xs0, xs1, xt = xs_xt_calc(rho, sigmas)
-    # print(PBE_C(rs, z, xt, c_arr))
-    # print(PBE_X(rs, z, xt, xs0, xs1, c_arr))
     res_energy = PBE_X(rs, z, xt, xs0, xs1, c_arr) + PBE_C(rs, z, xt, c_arr)
     catch_nan(res_energy=res_energy)
     return res_energy

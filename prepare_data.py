@@ -58,11 +58,11 @@ def prepare(path='data', test_size=0.2):
         for i in range(len(data_t)):
             data_t[i]['Grid'] = torch.Tensor(stdscaler.transform(data_t[i]['Grid']))
     
-
     return data, data_train, data_test
     
 
 def save_chk(data, data_train, data_test, path='checkpoints'):
+    # Save all processed data into pickle
     with open(f'{path}/data.pickle', 'wb') as f:
         pickle.dump(data, f)
     with open(f'{path}/data_train.pickle', 'wb') as f:
@@ -72,6 +72,7 @@ def save_chk(data, data_train, data_test, path='checkpoints'):
         
 
 def load_chk(path='checkpoints'):
+    # Load processed data from pickle
     with open(f'{path}/data.pickle', 'rb') as f:
         data = pickle.load(f)
     with open(f'{path}/data_train.pickle', 'rb') as f:

@@ -56,13 +56,19 @@ class MLOptimizer(nn.Module):
             modules.append(ResBlock(h_dim))
             
         modules.append(nn.Linear(h_dim, nconstants, bias=True))
-        modules.append(nn.Sigmoid())
 
         self.hidden_layers = nn.Sequential(*modules)
-
+    
+    def custom_sigmoid(self, x):
+        # Custom sigmoid translates from [-inf, +inf] to [0, 4]
+        # from 0 to 1
+        result = (1+torch.e+(torch.e-3)/3)/(1 + (torch.e-3)/3 + torch.e**(-0.5*x+1))
+        # result = torch.sigmoid(x) * 2
+        return result
 
     def forward(self, x):
         x = self.hidden_layers(x)
+        x = self.custom_sigmoid(x)
         if self.DFT == 'SVWN': # constraint for VWN3's Q_vwn function to 4*c - b**2 > 0
             constants = []
             for b_ind, c_ind in zip((2, 3, 11, 12, 13),(4, 5, 14, 15, 16)):
@@ -78,75 +84,17 @@ class MLOptimizer(nn.Module):
 def NN_2_256(num_layers=2, h_dim=256, nconstants=None, DFT=None):
     return MLOptimizer(num_layers, h_dim, nconstants, DFT)
 
-
 def NN_4_256(num_layers=4, h_dim=256, nconstants=None, DFT=None):
     return MLOptimizer(num_layers, h_dim, nconstants, DFT)
-
 
 def NN_8_256(num_layers=8, h_dim=256, nconstants=None, DFT=None):
     return MLOptimizer(num_layers, h_dim, nconstants, DFT)
 
-
 def NN_8_64(num_layers=8, h_dim=64, nconstants=None, DFT=None):
     return MLOptimizer(num_layers, h_dim, nconstants, DFT)
-
 
 def NN_4_128(num_layers=4, h_dim=128, nconstants=None, DFT=None):
     return MLOptimizer(num_layers, h_dim, nconstants, DFT)
 
-
-class ResBlockTest(nn.Module):
-
-    """
-    Iniialize a residual block with two FC followed by (batchnorm + relu + dropout) layers 
-    """
-    def __init__(self, h_dim):
-        super().__init__()
-        self.fc = nn.Sequential(
-            nn.Linear(h_dim, h_dim, bias=False),
-            nn.BatchNorm1d(h_dim),
-            nn.LeakyReLU())
-
-    def forward(self, x):
-        residue = x
-
-        return self.fc(self.fc(x)) + residue # skip connection
-
-
-
-
-class MLOptimizerTest(nn.Module):
-    def __init__(self, num_layers, h_dim, nconstants, DFT=None):
-        super().__init__()
-
-        self.DFT = DFT
-        
-        modules = []
-        modules.extend([nn.Linear(7, h_dim, bias=False),
-                        nn.BatchNorm1d(h_dim),
-                        nn.LeakyReLU()])
-        
-        for _ in range(num_layers // 2 - 1):
-            modules.append(ResBlockTest(h_dim))
-            
-        modules.append(nn.Linear(h_dim, nconstants, bias=True))
-
-        self.hidden_layers = nn.Sequential(*modules)
-                       
-    def forward(self, x):
-        x = self.hidden_layers(x)
-        if self.DFT == 'SVWN':
-            constants = []
-            for b_ind, c_ind in zip((2, 3, 11, 12, 13),(4, 5, 14, 15, 16)):
-                 constants.append(torch.abs((x[:, c_ind])) + (x[:, b_ind]**2)/4 + 1e-5)
-            x = torch.cat([x[:,0:4], torch.stack(constants[0:2], dim=1), x[:,6:14], torch.stack(constants[2:], dim=1), x[:,17:]], dim=1)
-            del constants
-        if self.DFT == 'PBE':
-            constants = torch.abs(x[:, 0:24]) + 1e-5
-            x = torch.cat([constants, x[:, 24:27]], dim=1) 
-            del constants
-        return x
-
-
-def test(num_layers=8, h_dim=256, nconstants=21, DFT=None):
-    return MLOptimizerTest(num_layers, h_dim, nconstants, DFT)
+def NN_8_128(num_layers=4, h_dim=128, nconstants=None, DFT=None):
+    return MLOptimizer(num_layers, h_dim, nconstants, DFT)

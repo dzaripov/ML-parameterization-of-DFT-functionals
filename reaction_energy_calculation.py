@@ -11,11 +11,6 @@ import pickle
 def get_local_energies(reaction, constants, device, rung='GGA', dft='PBE'):
     calc_reaction_data = {}
     densities = reaction['Densities'].to(device)
-    # eps = 1e-29
-    # condition_rho_not_0 = torch.logical_not((densities[:, 0] < eps) & (densities[:, 0] < eps)) # energy of both alpha and beta density equal zero will be zero
-    # densities = densities[condition_rho_not_0]
-    # constants = constants[condition_rho_not_0]
-    
     if rung == 'LDA':
         if dft == 'SVWN3':
             local_energies = f_svwn3(densities, constants)
@@ -32,10 +27,6 @@ def get_local_energies(reaction, constants, device, rung='GGA', dft='PBE'):
     calc_reaction_data['Densities'] = densities
     calc_reaction_data['Weights'] = reaction['Weights'].to(device)
     del local_energies, densities
-    # with open('checkpoints/calc_reaction_data.pickle', 'wb') as f:
-    #     pickle.dump(calc_reaction_data, f)
-    # with open('checkpoints/reaction.pickle', 'wb') as f:
-    #     pickle.dump(reaction, f)
     return calc_reaction_data
 
 
@@ -55,17 +46,7 @@ def backsplit(reaction, calc_reaction_data):
 
 
 def integration(reaction, splitted_calc_reaction_data):
-    
-    
-#     import pickle
-#     with open(f'log/reaction_H_H2.pickle', 'wb') as f:
-#         pickle.dump(reaction, f)
-#     with open(f'log/splitted_calc_reaction_data_H_H2.pickle', 'wb') as f:
-#         pickle.dump(splitted_calc_reaction_data, f)
-#     print('Saved reaction and splitted calc reaction data for H and H2')
-    
-    
-    
+
     molecule_energies = dict()
     for i, component in enumerate(np.frombuffer(reaction['Components'], dtype='<U20')):
         molecule_energies[component] = torch.sum(splitted_calc_reaction_data[component]['Local_energies'] \
@@ -81,7 +62,6 @@ def get_energy_reaction(reaction, molecule_energies):
     hartree2kcal = 627.5095
     s = 0
     for coef, ener in zip(reaction['Coefficients'], molecule_energies.values()):
-        # print(ener)
         s += coef * ener
     reaction_energy_kcal = s * hartree2kcal
     del ener, coef, s
@@ -90,17 +70,14 @@ def get_energy_reaction(reaction, molecule_energies):
 
 def calculate_reaction_energy(reaction, constants, device, rung, dft):
     local_energies = get_local_energies(reaction, constants, device, rung, dft)
-    # print(local_energies)
     if local_energies['Local_energies'].isnan().any():
         print(local_energies['Local_energies'].isnan().sum())
         torch.save(local_energies['Local_energies'], 'local_energies.pt')
         raise Error()
     splitted_calc_reaction_data = backsplit(reaction, local_energies)
-    # print(splitted_calc_reaction_data)
     molecule_energies = integration(reaction, splitted_calc_reaction_data)
-    # print(molecule_energies)
     reaction_energy_kcal = get_energy_reaction(reaction, molecule_energies)
-    
+
     del molecule_energies, splitted_calc_reaction_data, local_energies
     return reaction_energy_kcal
 

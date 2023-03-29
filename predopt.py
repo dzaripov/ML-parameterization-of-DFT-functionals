@@ -36,7 +36,6 @@ class DatasetPredopt(torch.utils.data.Dataset):
         self.dft = dft
         
     def __getitem__(self, i):
-        # i = 0
         self.data[i].pop('Database', None)
         if self.dft=='PBE':
             y_single = true_constants_PBE
@@ -48,9 +47,7 @@ class DatasetPredopt(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.data.keys())
 
-
-
-
+    
 def predopt(model, criterion, optimizer, train_loader, device, n_epochs=2, accum_iter=4):
     
     train_loss_mse = []
@@ -67,12 +64,10 @@ def predopt(model, criterion, optimizer, train_loader, device, n_epochs=2, accum
         # delete dropout in predopt
         model.eval()
 
-
         train_mse_losses_per_epoch = []
         train_mae_losses_per_epoch = []
         
         progress_bar = tqdm(train_loader)
-
         
         for batch_idx, (X_batch, y_batch) in enumerate(progress_bar):
             X_batch = X_batch['Grid'].to(device, non_blocking=True)
@@ -81,16 +76,19 @@ def predopt(model, criterion, optimizer, train_loader, device, n_epochs=2, accum
             loss = criterion(predictions, y_batch)
             loss.backward()
             
+            MAE = mean_absolute_error(predictions.cpu().detach(), y_batch.cpu().detach())
+            MSE = loss.item()
+            train_mse_losses_per_epoch.append(MSE)
+            train_mae_losses_per_epoch.append(MAE)
+            progress_bar.set_postfix(MAE = MAE, MSE = MSE)
+            
+            
             if ((batch_idx + 1) % accum_iter == 0) or (batch_idx + 1 == len(train_loader)):
                 optimizer.step()
                 optimizer.zero_grad(set_to_none=True)
-                MAE = mean_absolute_error(predictions.cpu().detach(), y_batch.cpu().detach())
-                MSE = loss.item()
-                train_mse_losses_per_epoch.append(MSE)
-                train_mae_losses_per_epoch.append(MAE)
-                progress_bar.set_postfix(MAE = MAE, MSE = MSE)
 
-                del X_batch, y_batch, predictions, loss, MAE, MSE
+
+            del X_batch, y_batch, predictions, loss, MAE, MSE
             gc.collect()
             torch.cuda.empty_cache()
             

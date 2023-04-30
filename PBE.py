@@ -96,12 +96,14 @@ def f_pw(rs, z, c_arr):
     return res_f_pw
     
 
-def A(rs, z, t, c_arr):
+def A(rs, z, t, c_arr, device):
     # eps = 1e-10
     f_pw_ = f_pw(rs, z, c_arr)
     mphi_ = c_arr[:, 1]*mphi(z)**3
-    res_A = (c_arr[:, 0]/(c_arr[:, 1]*torch.expm1(-f_pw_/mphi_)))
-    catch_nan(res_A=res_A, f_pw_=f_pw_, mphi_=mphi_, rs=rs, z=z, c_arr=c_arr)
+    const_87 = torch.Tensor([87]).to(device) # exp(87) = 10**38 - near infinity
+    expm1 = torch.expm1(torch.where(-f_pw_/mphi_ < const_87, -f_pw_/mphi_, const_87))
+    res_A = (c_arr[:, 0]/(c_arr[:, 1]*expm1))
+    catch_nan(res_A=res_A, f_pw_=f_pw_, mphi_=mphi_, expm1=expm1, rs=rs, z=z, c_arr=c_arr)
     return res_A
 
 
@@ -113,26 +115,26 @@ def f1(rs, z, t, A_, c_arr):
     return res_f1
 
 
-def f2(rs, z, t, c_arr):
+def f2(rs, z, t, c_arr, device):
     eps = 1e-10
-    A_ = A(rs, z, t, c_arr)
+    A_ = A(rs, z, t, c_arr, device)
     f1_ = f1(rs, z, t, A_, c_arr)
     res_f2 = c_arr[:, 0]*f1_/(c_arr[:, 1]*(A_*f1_+1) + eps)
     catch_nan(res_f2=res_f2, f1_=f1_, A_=A_)
     return res_f2
 
 
-def fH(rs, z, t, c_arr):
+def fH(rs, z, t, c_arr, device):
     eps = 10e-6
-    f2_ = f2(rs, z, t, c_arr)
+    f2_ = f2(rs, z, t, c_arr, device)
     log = torch.where(f2_ <= -1, torch.log1p(f2_ + eps), torch.log1p(f2_)) # weird infinity
     res_fH = c_arr[:, 1]*mphi(z)**3*log
     catch_nan(res_fH=res_fH, log=log, f2_=f2_)
     return res_fH
 
 
-def PBE_C(rs, z, xt, c_arr):
-    res_PBE_C = f_pw(rs, z, c_arr) + fH(rs, z, tt(rs, z, xt), c_arr)
+def PBE_C(rs, z, xt, c_arr, device):
+    res_PBE_C = f_pw(rs, z, c_arr) + fH(rs, z, tt(rs, z, xt), c_arr, device)
     catch_nan(res_PBE_C=res_PBE_C)
     return res_PBE_C
 
@@ -192,11 +194,11 @@ def PBE_X(rs, z, xt, xs0, xs1, c_arr):
 
 
 # @torch.compile
-def F_PBE(rho, sigmas, c_arr):
+def F_PBE(rho, sigmas, c_arr, device):
     catch_nan(rho=rho, sigmas=sigmas, c_arr=c_arr)
     rs, z = rs_z_calc(rho)
     xs0, xs1, xt = xs_xt_calc(rho, sigmas)
-    res_energy = PBE_X(rs, z, xt, xs0, xs1, c_arr) + PBE_C(rs, z, xt, c_arr)
+    res_energy = PBE_X(rs, z, xt, xs0, xs1, c_arr) + PBE_C(rs, z, xt, c_arr, device)
     catch_nan(res_energy=res_energy)
     return res_energy
 

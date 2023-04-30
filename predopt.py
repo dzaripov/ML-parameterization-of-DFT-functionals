@@ -88,7 +88,7 @@ def predopt(model, criterion, optimizer, train_loader, device, n_epochs=2, accum
                 optimizer.zero_grad(set_to_none=True)
 
 
-            del X_batch, y_batch, predictions, loss, MAE, MSE
+            #del X_batch, y_batch, predictions, loss, MAE, MSE
             gc.collect()
             torch.cuda.empty_cache()
             

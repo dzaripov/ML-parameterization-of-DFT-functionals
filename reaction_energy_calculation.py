@@ -19,9 +19,9 @@ def get_local_energies(reaction, constants, device, rung='GGA', dft='PBE'):
     elif rung == 'GGA':
         gradients = (reaction['Gradients']).to(device)
         if dft == 'PBE':
-            local_energies = F_PBE(densities, gradients, constants)
+            local_energies = F_PBE(densities, gradients, constants, device)
         elif dft == 'PBE_new':
-            local_energies = F_PBE_new(densities, gradients, constants)
+            local_energies = F_PBE_new(densities, gradients, constants, device)
     
     calc_reaction_data['Local_energies'] = local_energies
     calc_reaction_data['Densities'] = densities

@@ -68,7 +68,7 @@ class MLOptimizer(nn.Module):
 
     def forward(self, x):
         x = self.hidden_layers(x)
-        x = self.custom_sigmoid(x)
+        
         if self.DFT == 'SVWN': # constraint for VWN3's Q_vwn function to 4*c - b**2 > 0
             constants = []
             for b_ind, c_ind in zip((2, 3, 11, 12, 13),(4, 5, 14, 15, 16)):
@@ -76,8 +76,9 @@ class MLOptimizer(nn.Module):
             x = torch.cat([x[:,0:4], torch.stack(constants[0:2], dim=1), x[:,6:14], torch.stack(constants[2:], dim=1), x[:,17:]], dim=1)
             del constants
         if self.DFT == 'PBE':
-            ''' Scale constants for easier prediction (and take absolute value for constants) '''
-            x = torch.abs(x) * true_constants_PBE
+            ''' Use sigmoid on predictions and multiply by known constants for easier predictions '''
+            x = self.custom_sigmoid(x)
+            x = x * true_constants_PBE
         return x
 
 

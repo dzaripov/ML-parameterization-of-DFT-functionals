@@ -2,10 +2,40 @@ import numpy as np
 import torch
 from SVWN3 import f_svwn3
 from PBE import F_PBE
+from collections import defaultdict
+from itertools import chain
+from operator import methodcaller
 # from importlib import reload
 # import PBE
 # reload(PBE)
 import pickle
+
+
+def stack_reactions(reactions):
+    reaction_indices = []
+    stop = 0
+    grid_size = 0
+    reaction = defaultdict(list)
+    dict_items = map(methodcaller('items'), reactions)
+    for k, v in chain.from_iterable(dict_items):
+        if k == "Components":
+            reaction_indices.append(slice(stop, stop + len(v)))
+            stop += len(v)
+        if k in ("Components", "Coefficients"):
+            reaction[k] = np.hstack([np.array(reaction[k]), v]) if len(
+                reaction[k]) else v
+        elif k in ("Grid", "Densities", "Gradients"):
+            reaction[k] = torch.vstack([reaction[k], v]) if len(
+                reaction[k]) else v
+        elif k == 'backsplit_ind':
+            reaction[k] = torch.hstack([reaction[k], v +
+                                        grid_size]) if len(reaction[k]) else v
+        else:
+            reaction[k] = torch.hstack([reaction[k], v]) if len(
+                reaction[k]) else v
+        grid_size = len(reaction["Grid"])
+    reaction["reaction_indices"] = np.array(reaction_indices)
+    return dict(reaction)
 
 
 def get_local_energies(reaction, constants, device, rung='GGA', dft='PBE'):
@@ -59,16 +89,20 @@ def integration(reaction, splitted_calc_reaction_data):
 
 
 def get_energy_reaction(reaction, molecule_energies):
+    slices = reaction["reaction_indices"]
     hartree2kcal = 627.5095
-    s = 0
-    for coef, ener in zip(reaction['Coefficients'], molecule_energies.values()):
-        s += coef * ener
-    reaction_energy_kcal = s * hartree2kcal
+    reaction_energy_kcal = []
+    for slice in slices:
+        s = 0
+        for coef, ener in zip(reaction['Coefficients'], molecule_energies.values())[slice]:
+            s += coef * ener
+        reaction_energy_kcal.append(s * hartree2kcal)
     del ener, coef, s
-    return reaction_energy_kcal
+    return reaction_energy_kcal #list of size len(reactions)
 
 
-def calculate_reaction_energy(reaction, constants, device, rung, dft):
+def calculate_reaction_energy(reactions, constants, device, rung, dft):
+    reaction = stack_reactions(reactions)
     local_energies = get_local_energies(reaction, constants, device, rung, dft)
     if local_energies['Local_energies'].isnan().any():
         print(local_energies['Local_energies'].isnan().sum())

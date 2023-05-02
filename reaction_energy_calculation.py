@@ -101,8 +101,10 @@ def get_energy_reaction(reaction, molecule_energies):
     return torch.tensor(reaction_energy_kcal) #tensor of size len(reactions)
 
 
-def calculate_reaction_energy(reactions, constants, device, rung, dft):
-    reaction = stack_reactions(reactions)
+def calculate_reaction_energy(reaction, constants, device, rung, dft):
+    reaction["reaction_indices"] = [0, len(reaction["Components"])]
+    if type(reaction)!=dict:
+        reaction = stack_reactions(reaction)
     local_energies = get_local_energies(reaction, constants, device, rung, dft)
     if local_energies['Local_energies'].isnan().any():
         print(local_energies['Local_energies'].isnan().sum())

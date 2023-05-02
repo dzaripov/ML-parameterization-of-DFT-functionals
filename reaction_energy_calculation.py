@@ -12,14 +12,14 @@ import pickle
 
 
 def stack_reactions(reactions):
-    reaction_indices = []
+    reaction_indices = [0]
     stop = 0
     grid_size = 0
     reaction = defaultdict(list)
     dict_items = map(methodcaller('items'), reactions)
     for k, v in chain.from_iterable(dict_items):
         if k == "Components":
-            reaction_indices.append(slice(stop, stop + len(v)))
+            reaction_indices.append(stop+len(v))
             stop += len(v)
         if k in ("Components", "Coefficients"):
             reaction[k] = np.hstack([np.array(reaction[k]), v]) if len(
@@ -29,12 +29,12 @@ def stack_reactions(reactions):
                 reaction[k]) else v
         elif k == 'backsplit_ind':
             reaction[k] = torch.hstack([reaction[k], v +
-                                        grid_size]) if len(reaction[k]) else v
+                                        reaction[k][-1]]) if len(reaction[k]) else v
         else:
-            reaction[k] = torch.hstack([reaction[k], v]) if len(
-                reaction[k]) else v
+            reaction[k] = torch.hstack([torch.tensor(reaction[k]), v]) if torch.tensor(reaction[k]).dim!=0 else v
         grid_size = len(reaction["Grid"])
     reaction["reaction_indices"] = np.array(reaction_indices)
+    del dict_items
     return dict(reaction)
 
 
@@ -79,7 +79,7 @@ def integration(reaction, splitted_calc_reaction_data):
 
     molecule_energies = dict()
     for i, component in enumerate(np.frombuffer(reaction['Components'], dtype='<U20')):
-        molecule_energies[component] = torch.sum(splitted_calc_reaction_data[component]['Local_energies'] \
+        molecule_energies[component+str(i)] = torch.sum(splitted_calc_reaction_data[component]['Local_energies'] \
                                               * (splitted_calc_reaction_data[component]['Densities'][:,0] \
                                               + splitted_calc_reaction_data[component]['Densities'][:,1]) \
                                               * (splitted_calc_reaction_data[component]['Weights'])) \
@@ -92,13 +92,13 @@ def get_energy_reaction(reaction, molecule_energies):
     slices = reaction["reaction_indices"]
     hartree2kcal = 627.5095
     reaction_energy_kcal = []
-    for slice in slices:
+    for i in range(len(slices)-1):
         s = 0
-        for coef, ener in zip(reaction['Coefficients'], molecule_energies.values())[slice]:
+        for coef, ener in list(zip(reaction['Coefficients'], molecule_energies.values()))[slices[i]:slices[i+1]]:
             s += coef * ener
         reaction_energy_kcal.append(s * hartree2kcal)
     del ener, coef, s
-    return reaction_energy_kcal #list of size len(reactions)
+    return torch.tensor(reaction_energy_kcal) #tensor of size len(reactions)
 
 
 def calculate_reaction_energy(reactions, constants, device, rung, dft):

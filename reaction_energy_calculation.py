@@ -21,7 +21,7 @@ def stack_reactions(reactions):
         if k == "Components":
             reaction_indices.append(stop+len(v))
             stop += len(v)
-        if k in ("Components", "Coefficients"):
+        if k in ("Components", "Coefficients", "Database"):
             reaction[k] = np.hstack([np.array(reaction[k]), v]) if len(
                 reaction[k]) else v
         elif k in ("Grid", "Densities", "Gradients"):
@@ -31,9 +31,11 @@ def stack_reactions(reactions):
             reaction[k] = torch.hstack([reaction[k], v +
                                         reaction[k][-1]]) if len(reaction[k]) else v
         else:
-            reaction[k] = torch.hstack([torch.tensor(reaction[k]), v]) if torch.tensor(reaction[k]).dim!=0 else v
+            if type(reaction[k])!=torch.tensor:
+                reaction[k]=torch.tensor(reaction[k])
+            reaction[k] = torch.hstack([reaction[k], v]) if reaction[k].dim!=0 else v
         grid_size = len(reaction["Grid"])
-    reaction["reaction_indices"] = np.array(reaction_indices)
+    reaction["reaction_indices"] = torch.tensor(reaction_indices)
     del dict_items
     return dict(reaction)
 
@@ -102,9 +104,10 @@ def get_energy_reaction(reaction, molecule_energies):
 
 
 def calculate_reaction_energy(reaction, constants, device, rung, dft):
-    reaction["reaction_indices"] = [0, len(reaction["Components"])]
     if type(reaction)!=dict:
         reaction = stack_reactions(reaction)
+    else:
+        reaction["reaction_indices"] = torch.tensor([0, len(reaction["Components"])])
     local_energies = get_local_energies(reaction, constants, device, rung, dft)
     if local_energies['Local_energies'].isnan().any():
         print(local_energies['Local_energies'].isnan().sum())

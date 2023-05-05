@@ -31,11 +31,11 @@ def stack_reactions(reactions):
             reaction[k] = torch.hstack([reaction[k], v +
                                         reaction[k][-1]]) if len(reaction[k]) else v
         else:
-            if type(reaction[k])!=torch.tensor:
-                reaction[k]=torch.tensor(reaction[k])
+            if type(reaction[k])!=torch.Tensor:
+                reaction[k]=torch.Tensor(reaction[k])
             reaction[k] = torch.hstack([reaction[k], v]) if reaction[k].dim!=0 else v
         grid_size = len(reaction["Grid"])
-    reaction["reaction_indices"] = torch.tensor(reaction_indices)
+    reaction["reaction_indices"] = reaction_indices
     del dict_items
     return dict(reaction)
 
@@ -91,7 +91,7 @@ def integration(reaction, splitted_calc_reaction_data):
 
 
 def get_energy_reaction(reaction, molecule_energies):
-    slices = reaction["reaction_indices"]
+    slices = reaction.get("reaction_indices", [0, len(reaction["Components"])])
     hartree2kcal = 627.5095
     reaction_energy_kcal = []
     for i in range(len(slices)-1):
@@ -99,15 +99,14 @@ def get_energy_reaction(reaction, molecule_energies):
         for coef, ener in list(zip(reaction['Coefficients'], molecule_energies.values()))[slices[i]:slices[i+1]]:
             s += coef * ener
         reaction_energy_kcal.append(s * hartree2kcal)
-    del ener, coef, s
-    return torch.tensor(reaction_energy_kcal) #tensor of size len(reactions)
+    del ener, coef, s, slices
+    if type(reaction_energy_kcal)==list:
+        reaction_energy_kcal=torch.Tensor(reaction_energy_kcal)
+    reaction_energy_kcal.requires_grad = True
+    return reaction_energy_kcal #tensor of size len(reactions)
 
 
 def calculate_reaction_energy(reaction, constants, device, rung, dft):
-    if type(reaction)!=dict:
-        reaction = stack_reactions(reaction)
-    else:
-        reaction["reaction_indices"] = torch.tensor([0, len(reaction["Components"])])
     local_energies = get_local_energies(reaction, constants, device, rung, dft)
     if local_energies['Local_energies'].isnan().any():
         print(local_energies['Local_energies'].isnan().sum())
@@ -116,7 +115,6 @@ def calculate_reaction_energy(reaction, constants, device, rung, dft):
     splitted_calc_reaction_data = backsplit(reaction, local_energies)
     molecule_energies = integration(reaction, splitted_calc_reaction_data)
     reaction_energy_kcal = get_energy_reaction(reaction, molecule_energies)
-
     del molecule_energies, splitted_calc_reaction_data, local_energies
     return reaction_energy_kcal
 

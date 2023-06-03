@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from SVWN3 import f_svwn3
-from PBE import F_PBE
+from PBE import F_PBE, F_PBE_X, F_PBE_C
 from collections import defaultdict
 from itertools import chain
 from operator import methodcaller
@@ -9,6 +9,7 @@ from operator import methodcaller
 # import PBE
 # reload(PBE)
 import pickle
+
 
 
 def stack_reactions(reactions):
@@ -62,6 +63,34 @@ def get_local_energies(reaction, constants, device, rung='GGA', dft='PBE'):
     return calc_reaction_data
 
 
+def get_local_energies_x(reaction, constants, device, rung='GGA', dft='PBE'):
+    calc_reaction_data = {}
+    densities = reaction['Densities'].to(device)
+    gradients = (reaction['Gradients']).to(device)
+    
+    local_energies = F_PBE_X(densities, gradients, constants, device)
+    
+    calc_reaction_data['Local_energies'] = local_energies
+    calc_reaction_data['Densities'] = densities
+    calc_reaction_data['Weights'] = reaction['Weights'].to(device)
+    del local_energies, densities
+    return calc_reaction_data
+
+
+def get_local_energies_c(reaction, constants, device, rung='GGA', dft='PBE'):
+    calc_reaction_data = {}
+    densities = reaction['Densities'].to(device)
+    gradients = (reaction['Gradients']).to(device)
+    
+    local_energies = F_PBE_C(densities, gradients, constants, device)
+    
+    calc_reaction_data['Local_energies'] = local_energies
+    calc_reaction_data['Densities'] = densities
+    calc_reaction_data['Weights'] = reaction['Weights'].to(device)
+    del local_energies, densities
+    return calc_reaction_data
+
+
 def backsplit(reaction, calc_reaction_data):
     backsplit_ind = reaction['backsplit_ind'].type(torch.int)
     splitted_data = dict()
@@ -77,15 +106,16 @@ def backsplit(reaction, calc_reaction_data):
     return splitted_data
 
 
-def integration(reaction, splitted_calc_reaction_data):
-
+def integration(reaction, splitted_calc_reaction_data, dispersions=dict()):
+    
     molecule_energies = dict()
     for i, component in enumerate(np.frombuffer(reaction['Components'], dtype='<U20')):
         molecule_energies[component+str(i)] = torch.sum(splitted_calc_reaction_data[component]['Local_energies'] \
                                               * (splitted_calc_reaction_data[component]['Densities'][:,0] \
                                               + splitted_calc_reaction_data[component]['Densities'][:,1]) \
                                               * (splitted_calc_reaction_data[component]['Weights'])) \
-                                              + reaction['HF_energies'][i]
+                                              + reaction['HF_energies'][i] \
+                                              + torch.Tensor(dispersions[component])
     del splitted_calc_reaction_data
     return molecule_energies
 
@@ -100,20 +130,20 @@ def get_energy_reaction(reaction, molecule_energies):
             s += coef * ener
         reaction_energy_kcal.append(s * hartree2kcal)
     del ener, coef, s, slices
-    if type(reaction_energy_kcal)==list:
-        reaction_energy_kcal=torch.Tensor(reaction_energy_kcal)
-    reaction_energy_kcal.requires_grad = True
-    return reaction_energy_kcal #tensor of size len(reactions)
+#    if type(reaction_energy_kcal)==list:
+#        reaction_energy_kcal=torch.tensor(reaction_energy_kcal)
+#    reaction_energy_kcal.requires_grad = True
+    return torch.stack(reaction_energy_kcal) #tensor of size len(reactions)
 
 
-def calculate_reaction_energy(reaction, constants, device, rung, dft):
+def calculate_reaction_energy(reaction, constants, device, rung, dft, dispersions=dict()):
     local_energies = get_local_energies(reaction, constants, device, rung, dft)
     if local_energies['Local_energies'].isnan().any():
         print(local_energies['Local_energies'].isnan().sum())
         torch.save(local_energies['Local_energies'], 'local_energies.pt')
         raise Error()
     splitted_calc_reaction_data = backsplit(reaction, local_energies)
-    molecule_energies = integration(reaction, splitted_calc_reaction_data)
+    molecule_energies = integration(reaction, splitted_calc_reaction_data, dispersions)
     reaction_energy_kcal = get_energy_reaction(reaction, molecule_energies)
     del molecule_energies, splitted_calc_reaction_data, local_energies
     return reaction_energy_kcal
@@ -127,3 +157,5 @@ def test_energy_PBE(test_grid, constants):
                             + test_grid['Densities'][:,1]) \
                             * (test_grid['Weights'])
     return local_energies, local_scaled_energies
+
+

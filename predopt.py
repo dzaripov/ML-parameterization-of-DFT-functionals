@@ -1,9 +1,8 @@
 import torch
 import gc
-from tqdm.autonotebook import tqdm
+from tqdm.notebook import tqdm
 from sklearn.metrics import mean_absolute_error
 import numpy as np
-
 
 true_constants_SVWN = [0.0310907, 0.01554535, 
             3.72744,   7.06042,
@@ -41,20 +40,18 @@ class DatasetPredopt(torch.utils.data.Dataset):
             y_single = true_constants_PBE
         elif self.dft=='SVWN3':
             y_single = true_constants_SVWN
-        
-        return self.data[i], y_single 
+        return self.data[i], y_single
     
     def __len__(self):
         return len(self.data.keys())
 
     
-def predopt(model, criterion, optimizer, train_loader, device, n_epochs=2, accum_iter=4):
+    
+
+def predopt(model, criterion, optimizer, train_loader, device, n_epochs=2, accum_iter=1):
     
     train_loss_mse = []
     train_loss_mae = []
-    test_loss_mse = []
-    test_loss_mae = []
-
 
     for epoch in range(n_epochs):
         print('Epoch', epoch+1)
@@ -71,7 +68,7 @@ def predopt(model, criterion, optimizer, train_loader, device, n_epochs=2, accum
         
         for batch_idx, (X_batch, y_batch) in enumerate(progress_bar):
             X_batch = X_batch['Grid'].to(device, non_blocking=True)
-            y_batch = torch.tile(torch.Tensor(y_batch), [X_batch.shape[0],1]).to(device, non_blocking=True)
+            y_batch = torch.tile(y_batch, [X_batch.shape[0],1]).to(device, non_blocking=True)
             predictions = model(X_batch)
             loss = criterion(predictions, y_batch)
             loss.backward()
@@ -88,7 +85,7 @@ def predopt(model, criterion, optimizer, train_loader, device, n_epochs=2, accum
                 optimizer.zero_grad(set_to_none=True)
 
 
-            #del X_batch, y_batch, predictions, loss, MAE, MSE
+            del X_batch, y_batch, predictions, loss, MAE, MSE
             gc.collect()
             torch.cuda.empty_cache()
             

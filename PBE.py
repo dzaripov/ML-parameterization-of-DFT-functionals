@@ -203,6 +203,24 @@ def F_PBE(rho, sigmas, c_arr, device):
     return res_energy
 
 
+def F_PBE_X(rho, sigmas, c_arr, device):
+    catch_nan(rho=rho, sigmas=sigmas, c_arr=c_arr)
+    rs, z = rs_z_calc(rho)
+    xs0, xs1, xt = xs_xt_calc(rho, sigmas)
+    res_energy = PBE_X(rs, z, xt, xs0, xs1, c_arr)
+    catch_nan(res_energy=res_energy)
+    return res_energy
+
+
+def F_PBE_C(rho, sigmas, c_arr, device):
+    catch_nan(rho=rho, sigmas=sigmas, c_arr=c_arr)
+    rs, z = rs_z_calc(rho)
+    xs0, xs1, xt = xs_xt_calc(rho, sigmas)
+    res_energy = PBE_C(rs, z, xt, c_arr, device)
+    catch_nan(res_energy=res_energy)
+    return res_energy
+
+
 def pw_test(rho, c_arr):
     rs, z = rs_z_calc(rho)
     pw_energy = f_pw(rs, z, c_arr)

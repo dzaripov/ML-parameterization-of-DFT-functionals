@@ -1,6 +1,5 @@
 import torch
 
-
 def catch_nan(**kwargs):
     nan_detected = False
     inf_detected = False

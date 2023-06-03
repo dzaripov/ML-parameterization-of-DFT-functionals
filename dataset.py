@@ -2,6 +2,8 @@ import h5py
 import numpy as np    
 import torch
 import csv
+import copy
+from reaction_energy_calculation import stack_reactions
 
 
 def ref(x, y, path):
@@ -184,3 +186,27 @@ def make_reactions_dict(path=None):
         data[i] = add_reaction_info_from_h5(data[i], path)
 
     return data
+
+        
+def collate_fn(data):
+    data = copy.deepcopy(data)
+    reactions = []
+    energies = []
+    for reaction, energy in data:
+        energies.append(energy)
+        reaction.pop("Energy", None)
+        reactions.append(reaction)
+        torch_tensor_energy = torch.tensor(energies)
+        reactions_stacked = stack_reactions(reactions)
+    del energies, reactions, data
+    return reactions_stacked, torch_tensor_energy
+
+
+def collate_fn_predopt(data):
+    data = copy.deepcopy(data)
+    reactions = []
+    for reaction, constant in data:
+        reactions.append(reaction)
+        reactions_stacked = stack_reactions(reactions)
+    del reactions, data
+    return reactions_stacked, constant

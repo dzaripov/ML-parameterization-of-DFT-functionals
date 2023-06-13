@@ -78,6 +78,9 @@ class MLOptimizer(nn.Module):
         if self.DFT == 'PBE':
             ''' Use sigmoid on predictions and multiply by known constants for easier predictions '''
             x = self.custom_sigmoid(x)
+            # 4,5
+            if x.shape[1]==2:
+                x = torch.cat([torch.ones(x.shape[0], 4).to(device), x, torch.ones(x.shape[0],18).to(device)], dim=1)
             x = x * true_constants_PBE
         return x
 

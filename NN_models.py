@@ -32,12 +32,13 @@ class ResBlock(nn.Module):
             nn.Linear(h_dim, h_dim, bias=False),
             nn.BatchNorm1d(h_dim),
             nn.LeakyReLU(),
-            nn.Dropout(p=0.2))
+            nn.Dropout(p=0.1)) # default value was 0.2, trying 0.1, 0.4 and 0.6
         
     def forward(self, x):
         residue = x
 
-        return self.fc(self.fc(x)) + residue # skip connection
+        return self.fc(self.fc(x)) + residue # skip connection 
+#        return self.fc(self.fc(x))
 
 
 class MLOptimizer(nn.Module):

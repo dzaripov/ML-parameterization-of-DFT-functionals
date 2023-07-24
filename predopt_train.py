@@ -15,6 +15,9 @@ from prepare_data import prepare, save_chk, load_chk
 import matplotlib.pyplot as plt
 import inspect
 import sys
+import os
+
+
 
 
 def retrieve_name(var):
@@ -32,9 +35,37 @@ def set_random_seed(seed):
     random.seed(seed)
 
 
+def log_params(model, metric1, metric2, name, predopt=False):
+    with mlflow.start_run() as run:
+        if predopt:
+            metric1_name = "train_loss_mse"
+            metric2_name = "train_loss_mae"
+        else:
+            metric1_name = "train_loss_mae"
+            metric2_name = "test_loss_mae"
+        mlflow.pytorch.log_model(model, name)
+        mlflow.log_param("n_epochs", len(metric1))
+        mlflow.log_metric(metric1_name, metric1[-1])
+        mlflow.log_metric(metric2_name, metric2[-1])
+        plt.plot(np.arange(1,len(metric1)+1), metric1, label=metric1_name)
+        plt.plot(np.arange(1,len(metric1)+1), metric2, label=metric2_name)
+        plt.legend()
+        plt.xlabel("number of epochs")
+        plt.ylabel("loss")
+        plt.grid()
+        plt.savefig(f"{name}.png")
+        mlflow.log_artifact(f"{name}.png")
+        os.remove(f"./{name}.png")
+        plt.close()
+
+
+
 set_random_seed(41)
 
 data, data_train, data_test = load_chk(path='checkpoints')
+
+name, n_predopt, n_train, batch_size = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4])
+
 
 with open('./dispersions/dispersions.pickle', 'rb') as handle:
     dispersions = pickle.load(handle)
@@ -56,7 +87,7 @@ class Dataset(torch.utils.data.Dataset):
 
 train_set = Dataset(data=data_train)
 train_dataloader = torch.utils.data.DataLoader(train_set,
-                                               batch_size=8,
+                                               batch_size=batch_size,
                                                num_workers=4,
                                                pin_memory=True,
                                                shuffle=True,
@@ -64,7 +95,7 @@ train_dataloader = torch.utils.data.DataLoader(train_set,
 
 test_set = Dataset(data=data_test)
 test_dataloader = torch.utils.data.DataLoader(test_set,
-                                              batch_size=8,
+                                              batch_size=batch_size,
                                               num_workers=4,
                                               pin_memory=True,
                                               shuffle=True,
@@ -78,13 +109,13 @@ from predopt import DatasetPredopt, true_constants_PBE
 
 train_predopt_set = DatasetPredopt(data=data, dft='PBE')
 train_predopt_dataloader = torch.utils.data.DataLoader(train_predopt_set,
-                                                       batch_size=8,
+                                                       batch_size=batch_size,
                                                        num_workers=4,
                                                        pin_memory=True,
                                                        shuffle=True,
                                                        collate_fn=collate_fn_predopt)
 
-name, n_predopt, n_train = sys.argv[1:]
+mlflow.set_experiment(name)
 
 if name == 'PBE_8_32':
     model = MLOptimizer(num_layers=8, h_dim=32, nconstants=24, DFT='PBE').to(device)
@@ -116,29 +147,8 @@ train_loss_mse, train_loss_mae = predopt(model, criterion, optimizer, train_pred
                                          accum_iter=1)
 
 
-def log_params(model, metric1, metric2, name, predopt=False):
-    with mlflow.start_run() as run:
-        if predopt:
-            metric1_name = "train_loss_mse"
-            metric2_name = "train_loss_mae"
-        else:
-            metric1_name = "train_loss_mae"
-            metric2_name = "test_loss_mae"
-        mlflow.pytorch.log_model(model, name)
-        mlflow.log_param("n_epochs", len(metric1))
-        mlflow.log_metric(metric1_name, metric1[-1])
-        mlflow.log_metric(metric2_name, metric2[-1])
-        plt.plot(np.arange(len(metric1)), metric1, label=metric1_name)
-        plt.plot(metric2, label=metric2_name)
-        plt.legend()
-        plt.xlabel("number of epochs")
-        plt.ylabel("loss")
-        plt.savefig(f"{name}.png")
-        mlflow.log_artifact(f"{name}.png")
-        os.remove(f"./{name}.png")
 
 
-mlflow.set_experiment(name)
 log_params(model, train_loss_mse, train_loss_mae, name=f"{name}_predopt", predopt=True)
 
 torch.cuda.empty_cache()
@@ -146,10 +156,6 @@ torch.cuda.empty_cache()
 from tqdm.notebook import tqdm
 import os
 
-log_file_path = 'log/epoch_training.log'
-
-if os.path.isfile(log_file_path):
-    os.remove(log_file_path)
 
 mae = nn.L1Loss()
 
@@ -266,7 +272,7 @@ reload(utils)
 reload(reaction_energy_calculation)
 reload(PBE)
 
-optimizer = torch.optim.RMSprop(model.parameters(), lr=3e-5)
+optimizer = torch.optim.RMSprop(model.parameters(), lr=6e-5)
 
 N_EPOCHS = n_train
 ACCUM_ITER = 1

@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from SVWN3 import f_svwn3
+from SVWN3 import f_svwn3, F_XALPHA
 from PBE import F_PBE, F_PBE_X, F_PBE_C
 from collections import defaultdict
 from itertools import chain
@@ -49,6 +49,8 @@ def get_local_energies(reaction, constants, device, rung='GGA', dft='PBE'):
             local_energies = f_svwn3(densities, constants)
         if dft == 'pw':
             local_energies = pw_test(densities, constants)
+        if dft == 'XALPHA':
+            local_energies = F_XALPHA(densities, constants)
     elif rung == 'GGA':
         gradients = (reaction['Gradients']).to(device)
         if dft == 'PBE':
@@ -115,7 +117,7 @@ def integration(reaction, splitted_calc_reaction_data, dispersions=dict()):
                                               + splitted_calc_reaction_data[component]['Densities'][:,1]) \
                                               * (splitted_calc_reaction_data[component]['Weights'])) \
                                               + reaction['HF_energies'][i] \
-                                              + torch.Tensor(dispersions[component])
+                                              + torch.Tensor(dispersions.get(component,0))
     del splitted_calc_reaction_data
     return molecule_energies
 

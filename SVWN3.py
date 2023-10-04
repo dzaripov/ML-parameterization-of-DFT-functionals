@@ -121,6 +121,12 @@ def f_lda_x(rs, z, c_arr): # - screen_dens threshold
     return x
 
 
+def f_xalpha_x(rs, z, constant):
+    x = constant[:,0]*lda_x_spin(rs, z) + constant[:,0]*lda_x_spin(rs, -z)
+    catch_nan(x=x)
+    return x
+
+
 def lda_x_spin(rs, z):
     x = LDA_X_FACTOR*(z+1)**(1 + 1/DIMENSIONS)*2**(-1-1/DIMENSIONS)*(RS_FACTOR/rs)
     catch_nan(x=x)
@@ -135,6 +141,13 @@ def f_svwn3(rho, c_arr):
     catch_nan(rho=rho, c_arr=c_arr)
     rs, z = rs_z_calc(rho)
     return f_lda_x(rs, z, c_arr) + f_vwn(rs, z, c_arr)
+
+
+def F_XALPHA(rho, constant):
+    catch_nan(rho=rho, constant=constant)
+    rs, z = rs_z_calc(rho)
+    res_energy =  f_xalpha_x(rs, z, constant)
+    return res_energy
 
 
 if __name__ == '__main__':

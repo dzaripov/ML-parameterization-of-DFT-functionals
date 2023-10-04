@@ -2,7 +2,9 @@
 **/data
 **/checkpoints
 **/predopt
+**/mlruns
 __pycache__
 .ipynb_checkpoints
 *.pt
 *.log
+*.slurm

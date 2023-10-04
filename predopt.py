@@ -40,6 +40,8 @@ class DatasetPredopt(torch.utils.data.Dataset):
             y_single = true_constants_PBE
         elif self.dft=='SVWN3':
             y_single = true_constants_SVWN
+        elif self.dft=='XALPHA':
+            y_single = torch.Tensor([1.05])
         return self.data[i], y_single
     
     def __len__(self):

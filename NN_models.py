@@ -2,7 +2,7 @@ from torch import nn
 import torch
 
 
-device = torch.device('cuda:0') if torch.cuda.is_available else torch.device('cpu')
+device = torch.device('cuda:0') if torch.cuda.is_available else torch.device('cpu')	
 true_constants_PBE = torch.Tensor([[0.06672455,
                                     (1 - torch.log(torch.Tensor([2])))/(torch.pi**2),
                                     1.709921,
@@ -17,7 +17,6 @@ true_constants_PBE = torch.Tensor([[0.06672455,
                                     0.8040,
                                     0.2195149727645171]]).to(device)
 
-
 """
 Define an nn.Module class for a simple residual block with equal dimensions
 """
@@ -26,13 +25,13 @@ class ResBlock(nn.Module):
     """
     Iniialize a residual block with two FC followed by (batchnorm + relu + dropout) layers 
     """
-    def __init__(self, h_dim):
+    def __init__(self, h_dim, dropout):
         super().__init__()
         self.fc = nn.Sequential(
             nn.Linear(h_dim, h_dim, bias=False),
             nn.BatchNorm1d(h_dim),
             nn.LeakyReLU(),
-            nn.Dropout(p=0.1)) # default value was 0.2, trying 0.1, 0.4 and 0.6
+            nn.Dropout(p=dropout)) # default value was 0.2, trying 0.4 and 0.6
         
     def forward(self, x):
         residue = x
@@ -42,7 +41,7 @@ class ResBlock(nn.Module):
 
 
 class MLOptimizer(nn.Module):
-    def __init__(self, num_layers, h_dim, nconstants, DFT=None):
+    def __init__(self, num_layers, h_dim, nconstants, dropout, DFT=None):
         super().__init__()
 
         self.DFT = DFT
@@ -54,7 +53,7 @@ class MLOptimizer(nn.Module):
                         nn.Dropout(p=0.0)])
         
         for _ in range(num_layers // 2 - 1):
-            modules.append(ResBlock(h_dim))
+            modules.append(ResBlock(h_dim, dropout))
             
         modules.append(nn.Linear(h_dim, nconstants, bias=True))
 
@@ -83,6 +82,8 @@ class MLOptimizer(nn.Module):
             if x.shape[1]==2:
                 x = torch.cat([torch.ones(x.shape[0], 4).to(device), x, torch.ones(x.shape[0],18).to(device)], dim=1)
             x = x * true_constants_PBE
+        if self.DFT == 'XALPHA':
+            x = x * 1.05
         return x
 
 

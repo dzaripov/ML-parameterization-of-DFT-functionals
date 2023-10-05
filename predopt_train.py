@@ -9,54 +9,15 @@ from torch import nn
 from sklearn.metrics import mean_absolute_error
 from tqdm.notebook import tqdm
 from NN_models import MLOptimizer
-from reaction_energy_calculation import calculate_reaction_energy, stack_reactions, get_local_energies_x, \
-    get_local_energies_c, backsplit, get_local_energies
+from reaction_energy_calculation import calculate_reaction_energy, stack_reactions, get_local_energies, backsplit
 from prepare_data import prepare, save_chk, load_chk
 import matplotlib.pyplot as plt
 import inspect
 import sys
 import os
-
-
-
-
-def retrieve_name(var):
-    callers_local_vars = inspect.currentframe().f_back.f_locals.items()
-    return [var_name for var_name, var_val in callers_local_vars if var_val is var]
-
-
-def set_random_seed(seed):
-    # seed everything
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
-
-
-def log_params(model, metric1, metric2, name, predopt=False):
-    with mlflow.start_run() as run:
-        if predopt:
-            metric1_name = "train_loss_mse"
-            metric2_name = "train_loss_mae"
-        else:
-            metric1_name = "train_loss_mae"
-            metric2_name = "test_loss_mae"
-        mlflow.pytorch.log_model(model, name)
-        mlflow.log_param("n_epochs", len(metric1))
-        mlflow.log_metric(metric1_name, metric1[-1])
-        mlflow.log_metric(metric2_name, metric2[-1])
-        plt.plot(np.arange(1,len(metric1)+1), metric1, label=metric1_name)
-        plt.plot(np.arange(1,len(metric1)+1), metric2, label=metric2_name)
-        plt.legend()
-        plt.xlabel("number of epochs")
-        plt.ylabel("loss")
-        plt.grid()
-        plt.savefig(f"{name}.png")
-        mlflow.log_artifact(f"{name}.png")
-        os.remove(f"./{name}.png")
-        plt.close()
+from utils import log_params, retrieve_name, set_random_seed
+from dataset import collate_fn, collate_fn_predopt
+from predopt import DatasetPredopt, true_constants_PBE
 
 
 
@@ -79,11 +40,14 @@ elif "XALPHA" in name:
     lr_predopt = 6e-3
     lr_train = 2e-3
 
+num_layers, h_dim = map(int, name.split("_")[1:])
+device = torch.device('cuda:0') if torch.cuda.is_available else torch.device('cpu')
+model = MLOptimizer(num_layers=num_layers, h_dim=h_dim, nconstants=nconstants, dropout=dropout, DFT=dft).to(device)
 
+
+#load dispersion corrections
 with open('./dispersions/dispersions.pickle', 'rb') as handle:
     dispersions = pickle.load(handle)
-
-from dataset import collate_fn
 
 
 class Dataset(torch.utils.data.Dataset):
@@ -114,11 +78,8 @@ test_dataloader = torch.utils.data.DataLoader(test_set,
                                               shuffle=True,
                                               collate_fn=collate_fn)
 
-device = torch.device('cuda:0') if torch.cuda.is_available else torch.device('cpu')
 criterion = nn.MSELoss()
 
-from dataset import collate_fn_predopt
-from predopt import DatasetPredopt, true_constants_PBE
 
 train_predopt_set = DatasetPredopt(data=data, dft=dft)
 train_predopt_dataloader = torch.utils.data.DataLoader(train_predopt_set,
@@ -129,12 +90,6 @@ train_predopt_dataloader = torch.utils.data.DataLoader(train_predopt_set,
                                                        collate_fn=collate_fn_predopt)
 
 mlflow.set_experiment(name)
-
-num_layers, h_dim = map(int, name.split("_")[1:])
-
-model = MLOptimizer(num_layers=num_layers, h_dim=h_dim, nconstants=nconstants, dropout=dropout, DFT=dft).to(device)
-
-
 name+="_"+str(dropout)
 
 optimizer = torch.optim.Adam(model.parameters(), lr=lr_predopt, betas=(0.9, 0.999), weight_decay=0.01)
@@ -157,7 +112,6 @@ train_loss_mse, train_loss_mae = predopt(model, criterion, optimizer, train_pred
 
 
 
-
 log_params(model, train_loss_mse, train_loss_mae, name=f"{name}_predopt", predopt=True)
 
 torch.cuda.empty_cache()
@@ -170,67 +124,40 @@ mae = nn.L1Loss()
 
 
 def exc_loss(reaction, pred_constants, dft="PBE", true_constants=true_constants_PBE):
-    hartree2kcal = 627.5095
+    HARTREE2KCAL = 627.5095
+
+    #turn backsplit indices into slices
     backsplit_ind = reaction["backsplit_ind"].to(torch.int32)
     indices = list(zip(torch.hstack((torch.tensor(0).to(torch.int32), backsplit_ind)), backsplit_ind))
     n_molecules = len(indices)
+
+    #initialize loss
     loss = torch.tensor(0., requires_grad=True).to(device)
-    if dft=="PBE":
-        predicted_local_energies_x = get_local_energies_x(reaction, pred_constants, device, rung='GGA', dft='PBE')[
-            "Local_energies"]
-        predicted_local_energies_x = [predicted_local_energies_x[start:stop] for start, stop in indices]
-        predicted_local_energies_c = get_local_energies_c(reaction, pred_constants, device, rung='GGA', dft='PBE')[
-            "Local_energies"]
-        predicted_local_energies_c = [predicted_local_energies_c[start:stop] for start, stop in indices]
-        true_local_energies_x = get_local_energies_x(reaction, true_constants.to(device), device, rung='GGA', dft='PBE')[
-            "Local_energies"]
-        true_local_energies_x = [true_local_energies_x[start:stop] for start, stop in indices]
-        true_local_energies_c = get_local_energies_c(reaction, true_constants.to(device), device, rung='GGA', dft='PBE')[
-            "Local_energies"]
-        true_local_energies_c = [true_local_energies_c[start:stop] for start, stop in indices]
-        for i in range(n_molecules):
-            loss += 1 / len(predicted_local_energies_x[i]) \
-                    *torch.sqrt(torch.sum((predicted_local_energies_x[i] + predicted_local_energies_c[i] - true_local_energies_x[i] - true_local_energies_c[i]) ** 2))
-    elif dft=="XALPHA":
-        predicted_local_energies_x = get_local_energies(reaction, pred_constants, device, rung='LDA', dft='XALPHA')[
-            "Local_energies"]
-        predicted_local_energies_x = [predicted_local_energies_x[start:stop] for start, stop in indices]
-        true_local_energies_x = get_local_energies_x(reaction, true_constants.to(device), device, rung='GGA', dft='PBE')[
-            "Local_energies"]
-        true_local_energies_x = [true_local_energies_x[start:stop] for start, stop in indices]
-        true_local_energies_c = get_local_energies_c(reaction, true_constants.to(device), device, rung='GGA', dft='PBE')[
-            "Local_energies"]
-        true_local_energies_c = [true_local_energies_c[start:stop] for start, stop in indices]
 
-        for i in range(n_molecules):
-            loss += 1 / len(predicted_local_energies_x[i]) \
-                    *torch.sqrt(torch.sum((predicted_local_energies_x[i] - true_local_energies_x[i] - true_local_energies_c[i]) ** 2))
-    return loss*hartree2kcal/n_molecules
+    #calculate predicted local energies
+    predicted_local_energies = get_local_energies(reaction, pred_constants, device, rung=rung, dft=dft)[
+        "Local_energies"]
+    
+    #split them into systems
+    predicted_local_energies = [predicted_local_energies[start:stop] for start, stop in indices]
 
+    #calculate local PBE energies
+    true_local_energies = get_local_energies(reaction, true_constants.to(device), device, rung='GGA', dft='PBE')[
+        "Local_energies"]
+    
+    #split them into systems
+    true_local_energies = [true_local_energies[start:stop] for start, stop in indices]
 
-def old_exc_loss(reaction, pred_constants, dft="PBE", true_constants=true_constants_PBE):
-    hartree2kcal = 627.5095
-    backsplit_ind = reaction["backsplit_ind"].to(torch.int32)
-    indices = list(zip(torch.hstack((torch.tensor(0).to(torch.int32), backsplit_ind)), backsplit_ind))
-    n_molecules = len(indices)
-    loss = torch.tensor(0., requires_grad=True).to(device)
-    if dft=="PBE":
-        predicted_local_energies_x = get_local_energies_x(reaction, pred_constants, device, rung='GGA', dft='PBE')[
-            "Local_energies"]
-        predicted_local_energies_x = [predicted_local_energies_x[start:stop] for start, stop in indices]
-        predicted_local_energies_c = get_local_energies_c(reaction, pred_constants, device, rung='GGA', dft='PBE')[
-            "Local_energies"]
-        predicted_local_energies_c = [predicted_local_energies_c[start:stop] for start, stop in indices]
-        true_local_energies_x = get_local_energies_x(reaction, true_constants.to(device), device, rung='GGA', dft='PBE')[
-            "Local_energies"]
-        true_local_energies_x = [true_local_energies_x[start:stop] for start, stop in indices]
-        true_local_energies_c = get_local_energies_c(reaction, true_constants.to(device), device, rung='GGA', dft='PBE')[
-            "Local_energies"]
-        true_local_energies_c = [true_local_energies_c[start:stop] for start, stop in indices]
-        for i in range(n_molecules):
-            loss += 1 / len(predicted_local_energies_x[i]) \
-                    *torch.sqrt(torch.sum(((predicted_local_energies_x[i] - true_local_energies_x[i])**2 + (predicted_local_energies_c[i] - true_local_energies_c[i])** 2)))
-    return loss*hartree2kcal/n_molecules
+    #calculate local energy loss
+    for i in range(n_molecules):
+        loss += 1 / len(predicted_local_energies[i]) \
+                *torch.sqrt(
+                    torch.sum(
+                        (predicted_local_energies[i] - true_local_energies[i]) ** 2
+                    )
+                )
+
+    return loss*HARTREE2KCAL/n_molecules
 
 
 def train(model, criterion, optimizer, train_loader, test_loader, n_epochs=25, accum_iter=1, verbose=False, omega = 0.067):
@@ -263,8 +190,6 @@ def train(model, criterion, optimizer, train_loader, test_loader, n_epochs=25, a
             local_loss = exc_loss(X_batch, predictions, dft=dft)
             reaction_mse_loss = criterion(reaction_energy, y_batch)
             loss = (1 - omega) / 5 * torch.sqrt(reaction_mse_loss) + omega * local_loss * 100
-#            loss = local_loss
-#            loss = torch.sqrt(reaction_mse_loss)
             MSE = reaction_mse_loss.item()
             MAE = mae(reaction_energy, y_batch).item()
             train_mse_losses_per_epoch.append(MSE)
@@ -272,8 +197,6 @@ def train(model, criterion, optimizer, train_loader, test_loader, n_epochs=25, a
             train_exc_losses_per_epoch.append(local_loss.item())
             progress_bar_train.set_postfix(MSE=MSE, MAE=MAE)
 
-            # loss_accumulation
-            loss = loss / accum_iter
             loss.backward()
             if ((batch_idx + 1) % accum_iter == 0) or (batch_idx + 1 == len(train_loader)):
                 optimizer.step()
@@ -318,11 +241,16 @@ def train(model, criterion, optimizer, train_loader, test_loader, n_epochs=25, a
         test_loss_exc.append(np.mean(test_exc_losses_per_epoch))
 
         print(f'test MSE Loss = {test_loss_mse[epoch]:.8f} MAE Loss = {test_loss_mae[epoch]:.8f}')
-        print(f'test Local Energy Loss = {test_loss_exc[epoch]:.8f}')                
+        print(f'test Local Energy Loss = {test_loss_exc[epoch]:.8f}')
+
+        #save our model every 10 epochs
+        if (epoch+1)%10 == 0:
+            log_params(model, train_loss_mae, test_loss_mae, name=f"{name}_train_epoch_{epoch+1}")
+
 
     return train_loss_mae, test_loss_mae
 
-
+#DO WE NEED ALL OF IT?
 from importlib import reload
 import PBE
 import reaction_energy_calculation
@@ -341,5 +269,3 @@ ACCUM_ITER = 1
 train_loss_mae, test_loss_mae = train(model, criterion, optimizer,
                                       train_dataloader, test_dataloader,
                                       n_epochs=N_EPOCHS, accum_iter=ACCUM_ITER, omega=omega)
-
-log_params(model, train_loss_mae, test_loss_mae, name=f"{name}_train")

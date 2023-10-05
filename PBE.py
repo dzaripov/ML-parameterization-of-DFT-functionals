@@ -202,7 +202,7 @@ def F_PBE(rho, sigmas, c_arr, device):
     catch_nan(res_energy=res_energy)
     return res_energy
 
-
+#probably delete this
 def F_PBE_X(rho, sigmas, c_arr, device):
     catch_nan(rho=rho, sigmas=sigmas, c_arr=c_arr)
     rs, z = rs_z_calc(rho)
@@ -211,7 +211,7 @@ def F_PBE_X(rho, sigmas, c_arr, device):
     catch_nan(res_energy=res_energy)
     return res_energy
 
-
+#probably delete this
 def F_PBE_C(rho, sigmas, c_arr, device):
     catch_nan(rho=rho, sigmas=sigmas, c_arr=c_arr)
     rs, z = rs_z_calc(rho)

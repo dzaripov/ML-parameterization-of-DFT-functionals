@@ -11,7 +11,7 @@ from operator import methodcaller
 import pickle
 
 
-
+#utils?
 def stack_reactions(reactions):
     reaction_indices = [0]
     stop = 0
@@ -64,7 +64,7 @@ def get_local_energies(reaction, constants, device, rung='GGA', dft='PBE'):
     del local_energies, densities
     return calc_reaction_data
 
-
+#probably delete this
 def get_local_energies_x(reaction, constants, device, rung='GGA', dft='PBE'):
     calc_reaction_data = {}
     densities = reaction['Densities'].to(device)
@@ -78,7 +78,7 @@ def get_local_energies_x(reaction, constants, device, rung='GGA', dft='PBE'):
     del local_energies, densities
     return calc_reaction_data
 
-
+#probably delete this
 def get_local_energies_c(reaction, constants, device, rung='GGA', dft='PBE'):
     calc_reaction_data = {}
     densities = reaction['Densities'].to(device)

@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import csv
 import copy
-from reaction_energy_calculation import stack_reactions
+from utils import stack_reactions
 
 
 def ref(x, y, path):
@@ -189,6 +189,9 @@ def make_reactions_dict(path=None):
 
         
 def collate_fn(data):
+    '''
+    Custom collate function for torch train and test dataloader
+    '''
     data = copy.deepcopy(data)
     reactions = []
     energies = []
@@ -203,6 +206,9 @@ def collate_fn(data):
 
 
 def collate_fn_predopt(data):
+    '''
+    Custom collate function for torch predopt dataloader
+    '''
     data = copy.deepcopy(data)
     reactions = []
     for reaction, constant in data:

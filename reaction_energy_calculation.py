@@ -1,44 +1,7 @@
 import numpy as np
 import torch
 from SVWN3 import f_svwn3, F_XALPHA
-from PBE import F_PBE, F_PBE_X, F_PBE_C
-from collections import defaultdict
-from itertools import chain
-from operator import methodcaller
-# from importlib import reload
-# import PBE
-# reload(PBE)
-import pickle
-
-
-#utils?
-def stack_reactions(reactions):
-    reaction_indices = [0]
-    stop = 0
-    grid_size = 0
-    reaction = defaultdict(list)
-    dict_items = map(methodcaller('items'), reactions)
-    for k, v in chain.from_iterable(dict_items):
-        if k == "Components":
-            reaction_indices.append(stop+len(v))
-            stop += len(v)
-        if k in ("Components", "Coefficients", "Database"):
-            reaction[k] = np.hstack([np.array(reaction[k]), v]) if len(
-                reaction[k]) else v
-        elif k in ("Grid", "Densities", "Gradients"):
-            reaction[k] = torch.vstack([reaction[k], v]) if len(
-                reaction[k]) else v
-        elif k == 'backsplit_ind':
-            reaction[k] = torch.hstack([reaction[k], v +
-                                        reaction[k][-1]]) if len(reaction[k]) else v
-        else:
-            if type(reaction[k])!=torch.Tensor:
-                reaction[k]=torch.Tensor(reaction[k])
-            reaction[k] = torch.hstack([reaction[k], v]) if reaction[k].dim!=0 else v
-        grid_size = len(reaction["Grid"])
-    reaction["reaction_indices"] = reaction_indices
-    del dict_items
-    return dict(reaction)
+from PBE import F_PBE
 
 
 def get_local_energies(reaction, constants, device, rung='GGA', dft='PBE'):
@@ -57,34 +20,6 @@ def get_local_energies(reaction, constants, device, rung='GGA', dft='PBE'):
             local_energies = F_PBE(densities, gradients, constants, device)
         elif dft == 'PBE_new':
             local_energies = F_PBE_new(densities, gradients, constants, device)
-    
-    calc_reaction_data['Local_energies'] = local_energies
-    calc_reaction_data['Densities'] = densities
-    calc_reaction_data['Weights'] = reaction['Weights'].to(device)
-    del local_energies, densities
-    return calc_reaction_data
-
-#probably delete this
-def get_local_energies_x(reaction, constants, device, rung='GGA', dft='PBE'):
-    calc_reaction_data = {}
-    densities = reaction['Densities'].to(device)
-    gradients = (reaction['Gradients']).to(device)
-    
-    local_energies = F_PBE_X(densities, gradients, constants, device)
-    
-    calc_reaction_data['Local_energies'] = local_energies
-    calc_reaction_data['Densities'] = densities
-    calc_reaction_data['Weights'] = reaction['Weights'].to(device)
-    del local_energies, densities
-    return calc_reaction_data
-
-#probably delete this
-def get_local_energies_c(reaction, constants, device, rung='GGA', dft='PBE'):
-    calc_reaction_data = {}
-    densities = reaction['Densities'].to(device)
-    gradients = (reaction['Gradients']).to(device)
-    
-    local_energies = F_PBE_C(densities, gradients, constants, device)
     
     calc_reaction_data['Local_energies'] = local_energies
     calc_reaction_data['Densities'] = densities
@@ -132,10 +67,8 @@ def get_energy_reaction(reaction, molecule_energies):
             s += coef * ener
         reaction_energy_kcal.append(s * hartree2kcal)
     del ener, coef, s, slices
-#    if type(reaction_energy_kcal)==list:
-#        reaction_energy_kcal=torch.tensor(reaction_energy_kcal)
-#    reaction_energy_kcal.requires_grad = True
-    return torch.stack(reaction_energy_kcal) #tensor of size len(reactions)
+
+    return torch.stack(reaction_energy_kcal)
 
 
 def calculate_reaction_energy(reaction, constants, device, rung, dft, dispersions=dict()):

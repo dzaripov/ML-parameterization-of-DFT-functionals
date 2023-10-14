@@ -1,5 +1,5 @@
 import torch
-from utils import catch_nan, save_tensors
+from utils import catch_nan
 
 # PBE C
 
@@ -199,24 +199,6 @@ def F_PBE(rho, sigmas, c_arr, device):
     rs, z = rs_z_calc(rho)
     xs0, xs1, xt = xs_xt_calc(rho, sigmas)
     res_energy = PBE_X(rs, z, xt, xs0, xs1, c_arr) + PBE_C(rs, z, xt, c_arr, device)
-    catch_nan(res_energy=res_energy)
-    return res_energy
-
-#probably delete this
-def F_PBE_X(rho, sigmas, c_arr, device):
-    catch_nan(rho=rho, sigmas=sigmas, c_arr=c_arr)
-    rs, z = rs_z_calc(rho)
-    xs0, xs1, xt = xs_xt_calc(rho, sigmas)
-    res_energy = PBE_X(rs, z, xt, xs0, xs1, c_arr)
-    catch_nan(res_energy=res_energy)
-    return res_energy
-
-#probably delete this
-def F_PBE_C(rho, sigmas, c_arr, device):
-    catch_nan(rho=rho, sigmas=sigmas, c_arr=c_arr)
-    rs, z = rs_z_calc(rho)
-    xs0, xs1, xt = xs_xt_calc(rho, sigmas)
-    res_energy = PBE_C(rs, z, xt, c_arr, device)
     catch_nan(res_energy=res_energy)
     return res_energy
 

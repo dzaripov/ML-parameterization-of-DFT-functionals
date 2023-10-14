@@ -1,6 +1,5 @@
 from dataset import make_reactions_dict
 from sklearn.preprocessing import StandardScaler
-from time import perf_counter
 import torch
 import pickle
 import copy

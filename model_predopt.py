@@ -1,25 +1,10 @@
-import numpy as np
 import torch
-import gc
-import random
 from torch import nn
-from sklearn.metrics import mean_absolute_error
-from tqdm.notebook import tqdm
-from NN_models import NN_2_256, NN_4_256, NN_8_256, NN_8_64, test # NN_8_128
-from reaction_energy_calculation import calculate_reaction_energy
-from prepare_data import prepare, save_chk, load_chk
+from NN_models import NN_2_256, NN_4_256, NN_8_256, NN_8_64
+from prepare_data import load_chk
 import sys
 import os
-
-
-def set_random_seed(seed):
-    # seed everything
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
+from utils import set_random_seed
 
     
 set_random_seed(41)

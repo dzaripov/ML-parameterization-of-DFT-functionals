@@ -69,7 +69,7 @@ NAME_DICT = {
 
 
 def plot_results(ax, name, function):
-    result_dict = extract_history(f"txt files/{name}", function)
+    result_dict = extract_history(f"{path}/{name}", function)
     train_loss, test_loss = result_dict["train"], result_dict["test"]
     n_epochs = len(train_loss)
     if "PBE" in name:

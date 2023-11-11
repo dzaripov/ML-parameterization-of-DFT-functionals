@@ -272,3 +272,6 @@ ACCUM_ITER = 1
 train_loss_mae, test_loss_mae = train(model, criterion, optimizer,
                                       train_dataloader, test_dataloader,
                                       n_epochs=N_EPOCHS, accum_iter=ACCUM_ITER, omega=omega)
+
+# Log the final model
+log_params(model, train_loss_mae, test_loss_mae, name=f"{name}_final")

@@ -1,0 +1,19 @@
+Metadata-Version: 2.1
+Name: density-functional-approximation-dm21
+Version: 0.1
+Summary: An interface to PySCF for the DM21 functionals.
+Home-page: https://github.com/deepmind/deepmind-research/density_functional_approximation_dm21
+Author: DeepMind
+Author-email: no-reply@google.com
+License: Apache 2.0
+Platform: any
+Requires-Dist: absl-py
+Requires-Dist: attrs
+Requires-Dist: h5py
+Requires-Dist: numpy
+Requires-Dist: pyscf>=2.0
+Requires-Dist: tensorflow
+Requires-Dist: tensorflow_hub
+Provides-Extra: testing
+Requires-Dist: pytest; extra == "testing"
+Requires-Dist: scipy; extra == "testing"

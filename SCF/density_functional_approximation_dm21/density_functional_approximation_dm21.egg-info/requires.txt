@@ -1,0 +1,11 @@
+absl-py
+attrs
+h5py
+numpy
+pyscf>=2.0
+tensorflow
+tensorflow_hub
+
+[testing]
+pytest
+scipy

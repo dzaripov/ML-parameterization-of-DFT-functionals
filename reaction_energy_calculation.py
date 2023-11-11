@@ -52,7 +52,9 @@ def integration(reaction, splitted_calc_reaction_data, dispersions=dict()):
                                               + splitted_calc_reaction_data[component]['Densities'][:,1]) \
                                               * (splitted_calc_reaction_data[component]['Weights'])) \
                                               + reaction['HF_energies'][i] \
-                                              + torch.Tensor(dispersions.get(component,0))
+#                                             + torch.Tensor(dispersions.get(component,0))
+        if dispersions:
+            molecule_energies[component+str(i)] += torch.Tensor(dispersions.get(component,0))
     del splitted_calc_reaction_data
     return molecule_energies
 

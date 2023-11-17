@@ -45,9 +45,10 @@ def xs_xt_calc(rho, sigmas):     # sigma 1 is alpha beta contracted gradient
     DIMENSIONS = 3
     xs0 = torch.sqrt(sigmas[:,0])/rho[:,0]**(1 + 1/DIMENSIONS)
     # xs1 = torch.sqrt(sigmas[:,2])/(rho[:,1]+eps)**(1 + 1/DIMENSIONS)
+    # eps and 1e-19 added
     xs1 = torch.where((sigmas[:,2] < eps) & (rho[:,1] < eps), # last sigma and last rho equal 0
                       torch.sqrt(sigmas[:,0])/rho[:,0]**(1 + 1/DIMENSIONS), 
-                      torch.sqrt(sigmas[:,2])/rho[:,1]**(1 + 1/DIMENSIONS))
+                      torch.sqrt(sigmas[:,2] + eps)/(rho[:,1] + 1e-19)**(1 + 1/DIMENSIONS))
     xt  = torch.sqrt(sigmas[:,0] + 2*sigmas[:,1] + sigmas[:,2])/(rho[:,0] + rho[:,1])**(1 + 1/DIMENSIONS)
 
 #    catch_nan(rho=rho, sigmas=sigmas, xs0=xs0, xs1=xs1, xt=xt)
@@ -61,7 +62,9 @@ def f_zeta(z): # - power threshold
 
 
 def mphi(z):
-    res_mphi = ((1 + z)**(2/3) + (1 - z)**(2/3))/2
+    # eps added
+    eps = 1e-22
+    res_mphi = ((1 + z)**(2/3) + (1 - z + eps)**(2/3))/2
 #    catch_nan(res_mphi=res_mphi)
     return res_mphi
                                     

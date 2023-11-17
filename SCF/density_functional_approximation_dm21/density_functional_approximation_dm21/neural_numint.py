@@ -13,10 +13,6 @@
 # limitations under the License.
 
 
-#delete this libr in the future, for graph visualization
-from torchviz import make_dot
-
-
 """An interface to DM21 family of exchange-correlation functionals for PySCF."""
 
 import enum
@@ -136,7 +132,6 @@ class NeuralNumInt(numint.NumInt):
     # separated 1/r kernel and a range-seperated kernel with \omega = 0.4.
     # Note an omega of 0.0 is interpreted by PySCF and libcint to indicate no
     # range-separation.
-#    self._omega_values = [0.0, 0.4]
 
     self._grid_state = None
     self._system_state = None
@@ -168,10 +163,6 @@ class NeuralNumInt(numint.NumInt):
     """
 
     vxc, vrho, vsigma, vtau = self._model(features, device)
-#    weighted_local_xc = local_xc * features['grid_weights'].to(device)
-    #dim was 0!!!
-#    xc = torch.sum(weighted_local_xc, dim=0)
-
 
     # The potential is the local exchange correlation divided by the
     # total density. Add a small constant to deal with zero density.
@@ -188,14 +179,6 @@ class NeuralNumInt(numint.NumInt):
     # compute the contribution to the Fock matrix ourselves. Just use the
     # weighted XC energy to avoid having to weight this later.
 
-    #print(self._vsigma[0].mean())
-    #print(self._vsigma[1].mean())
-    #print(self._vsigma[2].mean())
-    #print(self._vrho[0].mean())
-    #print(self._vrho[1].mean())
-    #print(self._vtau[0].mean())
-    #print(self._vtau[1].mean())
-
 
     outputs = {
         'vxc': self._vxc.detach().cpu().numpy(),
@@ -211,8 +194,6 @@ class NeuralNumInt(numint.NumInt):
 
     local_xc, vxc, input_features = self._model(features, device)
     unweighted_xc = torch.sum(local_xc, dim=1)
-
-    make_dot(unweighted_xc).render('graph', format='png')
 
     # The potential is the local exchange correlation divided by the
     # total density. Add a small constant to deal with zero density.
@@ -231,28 +212,6 @@ class NeuralNumInt(numint.NumInt):
         ])
     self._vtau = self.torch_grad(
         unweighted_xc, [input_features['tau_a'], input_features['tau_b']])
-    
-    def logged_info(name: str):
-      dic = {
-        'local xc': (local_xc,),
-        'vxc': (self._vxc, ),
-        'vrho': self._vrho,
-        'vtau':self._vtau,
-        'vsigma': self._vsigma
-      }
-#      print(name)
-      for i, vector in enumerate(dic[name]):
-        inf_counter = torch.isinf(vector).sum().item()
-        nan_counter = torch.isnan(vector).sum().item()
-        if inf_counter>0:
-          print(name, i, inf_counter, '!!!!!!INFINITIES DETECTED!!!!!!')
-        if nan_counter>0:
-          print(name, i, nan_counter, '!!!!!!NANS DETECTED!!!!!!')
-#        print('maxabs', i, torch.max(torch.abs(vector)).item(), '\n')
-    
-    for name in ['local xc', 'vxc', 'vrho', 'vtau', 'vsigma']:
-      logged_info(name)
-
 
     # Standard meta-GGAs do not have a dependency on local HF, so we need to
     # compute the contribution to the Fock matrix ourselves. Just use the
@@ -319,28 +278,8 @@ class NeuralNumInt(numint.NumInt):
           'NeuralNumInt does not support multiple density matrices. '
           'Only ground state DFT calculations are currently implemented.')
     
-    #print("CALL OF FUNCTION NR_UKS")
     nao = mol.nao_nr()
-    #print("MOL CLASS : ")
-    #print(mol)
     self._system_state = _SystemState(mol=mol, dms=dms)
-    #print("DMS SHAPE: ", dms.shape)
-    #print("GRIDS CLASS: ")
-    #print(grids)
-    #print("XC CODE: ", xc_code)
-    #print("relativity: ", relativity)
-    #print("hermi: ", hermi)
-    #print("max_memory: ", max_memory)
-    #print("verbose: ", verbose)
-    #f = open("grids.pkl", 'wb')
-    #pickle.dump(grids, f, protocol=pickle.HIGHEST_PROTOCOL)
-    #f.close()
-    #f = open("dms.pkl", 'wb')
-    #pickle.dump(dms, f, protocol=pickle.HIGHEST_PROTOCOL)
-    #f.close()
-    #f = open("mol.pkl", 'wb')
-    #pickle.dump(mol, f, protocol=pickle.HIGHEST_PROTOCOL)
-    #f.close()
     nelec, excsum, vmat = super().nr_uks(
         mol=mol,
         grids=grids,
@@ -397,7 +336,6 @@ class NeuralNumInt(numint.NumInt):
     """
     # Wrap block_loop so we can store internal variables required to evaluate
     # the contribution to the XC potential from local Hartree-Fock features.
-    #print("===CALL OF block_loop===")
     for ao, mask, weight, coords in super().block_loop(
         mol=mol,
         grids=grids,
@@ -473,7 +411,6 @@ class NeuralNumInt(numint.NumInt):
       relativity: int = 0,
       deriv: int = 1,
       verbose=None,
-      #added!
       omega=None
   ) -> Tuple[np.ndarray, Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray],
              None, None]:
@@ -509,7 +446,6 @@ class NeuralNumInt(numint.NumInt):
         kxc is set to None. (The third-order functional derivatives are not
         computed.)
     """
-    #print("===CALL OF function eval_xc===")
     del xc_code, verbose, relativity, deriv  # unused
 
     # Retrieve cached state.
@@ -534,10 +470,6 @@ class NeuralNumInt(numint.NumInt):
     
     grads = self.model_predict_old(features, device)
     exc, vrho, vsigma, vtau = grads['vxc'], grads['vrho'], grads['vsigma'], grads['vtau']
-
-#    vrho = (np.zeros_like(vrho[0]), np.zeros_like(vrho[1]))
-#    vsigma = (np.zeros_like(vsigma[0]), np.zeros_like(vsigma[1]), np.zeros_like(vsigma[2]))
-#    vtau = (np.zeros_like(vtau[0]), np.zeros_like(vtau[1]))
 
     
     mol = self._system_state.mol
@@ -579,7 +511,6 @@ class NeuralNumInt(numint.NumInt):
 
     fxc = None  # Second derivative not implemented
     kxc = None  # Second derivative not implemented
-    #change exc[:, 0] to exc[0, :]
     exc = exc.astype(np.float64)
     vxc = tuple(v.astype(np.float64) for v in (vxc_0, vxc_1, vxc_2, vxc_3))
     return exc, vxc, fxc, kxc

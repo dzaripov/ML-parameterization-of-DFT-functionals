@@ -34,21 +34,25 @@ def z_thr(zeta):
 
 
 def rs_z_calc(rho):
-    rs = (3/((rho[:,0] + rho[:,1]) * (4 * torch.pi))) ** (1/3)
-    z = z_thr((rho[:,0] - rho[:,1]) / (rho[:,0] + rho[:,1]))
+    # problem is not here
+    eps = 1e-20
+    rs = (3/((rho[:,0] + rho[:,1] + eps) * (4 * torch.pi))) ** (1/3)
+    z = z_thr((rho[:,0] - rho[:,1]) / (rho[:,0] + rho[:,1] + eps))
     catch_nan(rs=rs, z=z)
     return rs, z
 
 
 def xs_xt_calc(rho, sigmas):     # sigma 1 is alpha beta contracted gradient
     eps = 1e-29
+    eps_add = 1e-10
     DIMENSIONS = 3
-    xs0 = torch.sqrt(sigmas[:,0])/rho[:,0]**(1 + 1/DIMENSIONS)
+    xs0 = torch.sqrt(sigmas[:,0] + eps_add**2)/(rho[:,0] + eps_add)**(1 + 1/DIMENSIONS)
     # xs1 = torch.sqrt(sigmas[:,2])/(rho[:,1]+eps)**(1 + 1/DIMENSIONS)
+    # eps and 1e-19 added
     xs1 = torch.where((sigmas[:,2] < eps) & (rho[:,1] < eps), # last sigma and last rho equal 0
-                      torch.sqrt(sigmas[:,0])/rho[:,0]**(1 + 1/DIMENSIONS), 
-                      torch.sqrt(sigmas[:,2])/rho[:,1]**(1 + 1/DIMENSIONS))
-    xt  = torch.sqrt(sigmas[:,0] + 2*sigmas[:,1] + sigmas[:,2])/(rho[:,0] + rho[:,1])**(1 + 1/DIMENSIONS)
+                      torch.sqrt(sigmas[:,0] + eps_add**2)/(rho[:,0] + eps_add)**(1 + 1/DIMENSIONS), 
+                      torch.sqrt(sigmas[:,2] + eps_add**2)/(rho[:,1] + eps_add)**(1 + 1/DIMENSIONS))
+    xt  = torch.sqrt(sigmas[:,0] + 2*sigmas[:,1] + sigmas[:,2] + eps_add**2)/(rho[:,0] + rho[:,1] + eps_add)**(1 + 1/DIMENSIONS)
 
     catch_nan(rho=rho, sigmas=sigmas, xs0=xs0, xs1=xs1, xt=xt)
     return xs0, xs1, xt
@@ -61,12 +65,17 @@ def f_zeta(z): # - power threshold
 
 
 def mphi(z):
-    res_mphi = ((1 + z)**(2/3) + (1 - z)**(2/3))/2
+    # eps added
+    eps = 1e-22
+    res_mphi = ((1 + z)**(2/3) + (1 - z + eps)**(2/3))/2
     catch_nan(res_mphi=res_mphi)
     return res_mphi
                                     
                                     
 def tt(rs, z, xt):
+    # rs is okay
+    # mphi is okay
+    # xt is big!
     res_tt = xt/(4*2**(1/3)*mphi(z)*torch.sqrt(rs))
     catch_nan(res_tt=res_tt)
     return res_tt
@@ -108,8 +117,10 @@ def A(rs, z, t, c_arr, device):
 
 
 def f1(rs, z, t, A_, c_arr):
+    catch_nan(A_=A_, t=t)
     BB = 1 # flexibility of A(rs, z, t)*t**4 term \ constant \ 1 or 0
     t2 = t**2
+    catch_nan(t2=t2)
     res_f1 = t2 + BB*A_*t2**2
     catch_nan(res_f1=res_f1)
     return res_f1

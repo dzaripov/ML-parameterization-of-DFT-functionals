@@ -14,7 +14,6 @@ from dataset import collate_fn, collate_fn_predopt
 from predopt import DatasetPredopt, true_constants_PBE
 
 
-
 set_random_seed(41)
 
 data, data_train, data_test = load_chk(path='checkpoints')
@@ -38,11 +37,9 @@ num_layers, h_dim = map(int, name.split("_")[1:])
 device = torch.device('cuda:0') if torch.cuda.is_available else torch.device('cpu')
 model = MLOptimizer(num_layers=num_layers, h_dim=h_dim, nconstants=nconstants, dropout=dropout, DFT=dft).to(device)
 
-
 # load dispersion corrections
 with open('./dispersions/dispersions.pickle', 'rb') as handle:
     dispersions = pickle.load(handle)
-
 
 class Dataset(torch.utils.data.Dataset):
     def __init__(self, data):
@@ -54,7 +51,6 @@ class Dataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.data.keys())
-
 
 train_set = Dataset(data=data_train)
 train_dataloader = torch.utils.data.DataLoader(train_set,
@@ -73,7 +69,6 @@ test_dataloader = torch.utils.data.DataLoader(test_set,
                                               collate_fn=collate_fn)
 
 criterion = nn.MSELoss()
-
 
 train_predopt_set = DatasetPredopt(data=data, dft=dft)
 train_predopt_dataloader = torch.utils.data.DataLoader(train_predopt_set,
@@ -104,15 +99,12 @@ from predopt import predopt
 train_loss_mse, train_loss_mae = predopt(model, criterion, optimizer, train_predopt_dataloader, device, n_epochs=n_predopt,
                                          accum_iter=1)
 
-
-
 log_params(model, train_loss_mse, train_loss_mae, name=f"{name}_predopt", predopt=True)
 
 torch.cuda.empty_cache()
 
 from tqdm.notebook import tqdm
 import os
-
 
 mae = nn.L1Loss()
 
@@ -153,7 +145,6 @@ def exc_loss(reaction, pred_constants, dft="PBE", true_constants=true_constants_
 
     return loss*HARTREE2KCAL/n_molecules
 
-
 def train(model, criterion, optimizer, train_loader, test_loader, n_epochs=25, accum_iter=1, verbose=False, omega = 0.067):
     train_loss_mae = []
     train_loss_mse = []
@@ -161,7 +152,6 @@ def train(model, criterion, optimizer, train_loader, test_loader, n_epochs=25, a
     test_loss_mae = []
     test_loss_mse = []
     test_loss_exc = []
-
 
     for epoch in range(n_epochs):
         torch.autograd.set_detect_anomaly(True)
@@ -181,7 +171,8 @@ def train(model, criterion, optimizer, train_loader, test_loader, n_epochs=25, a
 
             if verbose:
                 print(f"{X_batch['Components']} pred {reaction_energy.item():4f} true {y_batch.item():4f}")
-            #calculate local ebergy loss
+
+            #calculate local energy loss
             local_loss = exc_loss(X_batch, predictions, dft=dft)
 
             # calculate mse loss
@@ -253,7 +244,6 @@ def train(model, criterion, optimizer, train_loader, test_loader, n_epochs=25, a
 
     return train_loss_mae, test_loss_mae
 
-#DO WE NEED ALL OF IT?
 from importlib import reload
 import PBE
 import reaction_energy_calculation

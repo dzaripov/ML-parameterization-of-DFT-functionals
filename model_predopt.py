@@ -6,7 +6,7 @@ import sys
 import os
 from utils import set_random_seed
 
-    
+
 set_random_seed(41)
 data, data_train, data_test = load_chk(path='checkpoints')
 

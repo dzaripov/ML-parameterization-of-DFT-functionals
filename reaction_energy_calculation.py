@@ -44,7 +44,7 @@ def backsplit(reaction, calc_reaction_data):
 
 
 def integration(reaction, splitted_calc_reaction_data, dispersions=dict()):
-    
+
     molecule_energies = dict()
     for i, component in enumerate(np.frombuffer(reaction['Components'], dtype='<U20')):
         molecule_energies[component+str(i)] = torch.sum(splitted_calc_reaction_data[component]['Local_energies'] \

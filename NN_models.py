@@ -31,13 +31,12 @@ class ResBlock(nn.Module):
             nn.Linear(h_dim, h_dim, bias=False),
             nn.BatchNorm1d(h_dim),
             nn.LeakyReLU(),
-            nn.Dropout(p=dropout)) # default value was 0.2, trying 0.4 and 0.6
+            nn.Dropout(p=dropout))
         
     def forward(self, x):
         residue = x
 
         return self.fc(self.fc(x)) + residue # skip connection 
-#        return self.fc(self.fc(x))
 
 
 class MLOptimizer(nn.Module):
@@ -63,7 +62,6 @@ class MLOptimizer(nn.Module):
         # Custom sigmoid translates from [-inf, +inf] to [0, 4]
         # from 0 to 1
         result = (1+torch.e+(torch.e-3)/3)/(1 + (torch.e-3)/3 + torch.e**(-0.5*x+1))
-        # result = torch.sigmoid(x) * 2
         return result
 
     def forward(self, x):

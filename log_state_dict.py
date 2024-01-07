@@ -1,10 +1,10 @@
-#import mlflow
+# import mlflow
 #
-#relative_path_to_model = {
+# relative_path_to_model = {
 #    'NN_PBE': '583612537407811688/d47165289483405692b8424df7009906/artifacts/PBE_8_32_0.4_final',
 #    'NN_XALPHA': '429050431669758440/3886423064a64fc199d7879c234fa63c/artifacts/XALPHA_32_32_0.4_final'
-#}
-#with mlflow.start_run():
+# }
+# with mlflow.start_run():
 #    for model_name in 'NN_PBE', 'NN_XALPHA':
 #        model_path = 'mlruns/' + relative_path_to_model[model_name]
 #        model = mlflow.pytorch.load_model(model_path)
@@ -14,4 +14,5 @@
 #        print(state_dict_uri)
 #        print('\n\n')
 from prepare_data import prepare
+
 prepare()

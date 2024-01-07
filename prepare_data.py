@@ -1,10 +1,12 @@
-from dataset import make_reactions_dict
-from sklearn.preprocessing import StandardScaler
-import torch
-import pickle
 import copy
+import pickle
 import random
+
 import numpy as np
+import torch
+from sklearn.preprocessing import StandardScaler
+
+from dataset import make_reactions_dict
 
 
 def rename_keys(data):
@@ -35,50 +37,49 @@ def train_split(data, test_size, shuffle=False):
     return rename_keys(train), rename_keys(test)
 
 
-
-def prepare(path='data', test_size=0.2):
+def prepare(path="data", test_size=0.2):
     # make a single dictionary from the whole dataset
     data = make_reactions_dict(path=path)
-    
-    #train-test split
+
+    # train-test split
     data_train, data_test = train_split(copy.deepcopy(data), test_size, shuffle=True)
-    
-    #stdscaler fit
+
+    # stdscaler fit
     lst = []
     for i in range(len(data_train)):
-        lst.append(data_train[i]['Grid'])
+        lst.append(data_train[i]["Grid"])
 
     train_grid_data = torch.cat(lst)
     stdscaler = StandardScaler()
     stdscaler.fit(np.array(train_grid_data))
-    
-    #CHECK MEAN AND VAR, DELTE LATER
-    print('mean:', stdscaler.mean_)
-    print('std:', np.sqrt(stdscaler.var_))
-    #stdscaler transform
+
+    # CHECK MEAN AND VAR, DELTE LATER
+    print("mean:", stdscaler.mean_)
+    print("std:", np.sqrt(stdscaler.var_))
+    # stdscaler transform
     for data_t in (data_train, data_test):
         for i in range(len(data_t)):
-            data_t[i]['Grid'] = torch.Tensor(stdscaler.transform(data_t[i]['Grid']))
-    
+            data_t[i]["Grid"] = torch.Tensor(stdscaler.transform(data_t[i]["Grid"]))
+
     return data, data_train, data_test
-    
 
-def save_chk(data, data_train, data_test, path='checkpoints'):
+
+def save_chk(data, data_train, data_test, path="checkpoints"):
     # Save all processed data into pickle
-    with open(f'{path}/data.pickle', 'wb') as f:
+    with open(f"{path}/data.pickle", "wb") as f:
         pickle.dump(data, f)
-    with open(f'{path}/data_train.pickle', 'wb') as f:
-        pickle.dump(data_train, f)    
-    with open(f'{path}/data_test.pickle', 'wb') as f:
-        pickle.dump(data_test, f)        
-        
+    with open(f"{path}/data_train.pickle", "wb") as f:
+        pickle.dump(data_train, f)
+    with open(f"{path}/data_test.pickle", "wb") as f:
+        pickle.dump(data_test, f)
 
-def load_chk(path='checkpoints'):
+
+def load_chk(path="checkpoints"):
     # Load processed data from pickle
-    with open(f'{path}/data.pickle', 'rb') as f:
+    with open(f"{path}/data.pickle", "rb") as f:
         data = pickle.load(f)
-    with open(f'{path}/data_train.pickle', 'rb') as f:
+    with open(f"{path}/data_train.pickle", "rb") as f:
         data_train = pickle.load(f)
-    with open(f'{path}/data_test.pickle', 'rb') as f:
+    with open(f"{path}/data_test.pickle", "rb") as f:
         data_test = pickle.load(f)
     return data, data_train, data_test

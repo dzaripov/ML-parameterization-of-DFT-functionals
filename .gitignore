@@ -8,3 +8,5 @@ __pycache__
 *.pt
 *.log
 *.slurm
+*.ipynb
+log_state_dict.py

@@ -53,7 +53,7 @@ def prepare(path="data", test_size=0.2):
     stdscaler = StandardScaler()
     stdscaler.fit(np.array(train_grid_data))
 
-    # CHECK MEAN AND VAR, DELTE LATER
+    # Check mean and var
     print("mean:", stdscaler.mean_)
     print("std:", np.sqrt(stdscaler.var_))
     # stdscaler transform

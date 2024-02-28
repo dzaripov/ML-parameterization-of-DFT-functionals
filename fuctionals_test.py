@@ -124,9 +124,9 @@ with torch.no_grad():
         print(f"XAlpha {names[index]} Local Loss =", np.mean(np.array(local_lst)))
 
 # XAlpha Train MAE = 16.477375944478567
-# XAlpha Train Local Loss = 0.11192005753170613
+# XAlpha Train Local Loss = 0.2030723136178283
 # XAlpha Test MAE = 17.319649955401054
-# XAlpha Test Local Loss = 0.11970577926303332
+# XAlpha Test Local Loss = 0.1731235754604523
 
 with torch.no_grad():
     for index, dataset in enumerate([train_dataloader, test_dataloader]):
@@ -144,5 +144,5 @@ with torch.no_grad():
             lst.append(mae(energies, y_batch).item())
         print(f"PBE {names[index]} MAE =", np.mean(np.array(lst)))
 
-# PBE Train MAE = 7.857935028800438
-# PBE Test MAE = 7.648924972360524
+# PBE Train MAE = 7.858313535483077
+# PBE Test MAE = 7.649569436119726

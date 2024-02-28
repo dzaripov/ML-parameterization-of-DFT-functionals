@@ -21,7 +21,7 @@ The model's state is saved every 10 epochs and at the end of training in <em>mlr
 4) Run the script with various Ω values and save the outputs in the format <em>{XALPHA or PBE}\_{number of hidden weight layers}\_{number of neurons in a layer}\_{Ω  value}\_{other information if needed}.out</em>
 5) Put the .out files in one folder and run the following script to reproduce Figures S1-S14:
 ```
-python visualize.py {path to the folder containing .out files}
+python visualize.py {name of the folder containing .out files}
 ```
 
 6) To test PBE and XAlpha functionals of M06-2X train and test dataset, run:

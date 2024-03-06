@@ -10,7 +10,7 @@ from dataset import make_reactions_dict
 
 
 def rename_keys(data):
-    # turns reaction_data dict keys names into numbers
+    # Turns reaction_data dict keys names into numbers.
     l = len(data)
     keys = data.keys()
     data_new = {}
@@ -20,7 +20,7 @@ def rename_keys(data):
 
 
 def train_split(data, test_size, shuffle=False):
-    # returns train and test reaction dictionaries
+    # Returns train and test reaction dictionaries.
     if shuffle:
         keys = list(data.keys())
         random.shuffle(keys)
@@ -38,13 +38,13 @@ def train_split(data, test_size, shuffle=False):
 
 
 def prepare(path="data", test_size=0.2):
-    # make a single dictionary from the whole dataset
+    # Make a single dictionary from the whole dataset.
     data = make_reactions_dict(path=path)
 
-    # train-test split
+    # Train-test split.
     data_train, data_test = train_split(copy.deepcopy(data), test_size, shuffle=True)
 
-    # stdscaler fit
+    # Stdscaler fit.
     lst = []
     for i in range(len(data_train)):
         lst.append(data_train[i]["Grid"])
@@ -53,10 +53,10 @@ def prepare(path="data", test_size=0.2):
     stdscaler = StandardScaler()
     stdscaler.fit(np.array(train_grid_data))
 
-    # Check mean and var
+    # Check mean and var for later SCF calculations
     print("mean:", stdscaler.mean_)
     print("std:", np.sqrt(stdscaler.var_))
-    # stdscaler transform
+    # Stdscaler transform.
     for data_t in (data_train, data_test):
         for i in range(len(data_t)):
             data_t[i]["Grid"] = torch.Tensor(stdscaler.transform(data_t[i]["Grid"]))
@@ -65,7 +65,7 @@ def prepare(path="data", test_size=0.2):
 
 
 def save_chk(data, data_train, data_test, path="checkpoints"):
-    # Save all processed data into pickle
+    # Save all processed data into pickle.
     with open(f"{path}/data.pickle", "wb") as f:
         pickle.dump(data, f)
     with open(f"{path}/data_train.pickle", "wb") as f:
@@ -75,7 +75,7 @@ def save_chk(data, data_train, data_test, path="checkpoints"):
 
 
 def load_chk(path="checkpoints"):
-    # Load processed data from pickle
+    # Load processed data from pickle.
     with open(f"{path}/data.pickle", "rb") as f:
         data = pickle.load(f)
     with open(f"{path}/data_train.pickle", "rb") as f:

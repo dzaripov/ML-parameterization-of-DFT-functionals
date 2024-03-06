@@ -1,11 +1,23 @@
 import os
 import sys
-
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
+from matplotlib.lines import Line2D
+from matplotlib.ticker import AutoMinorLocator
+from matplotlib import rc
 
-path = " ".join(sys.argv[1:])
+
+dir_path = os.path.dirname(os.path.realpath(__file__))
+
+
+path = dir_path + '\\' + sys.argv[1]
+
+size = 11.5
+lw = 0.7
+
+ticks = size/16
+tick_length = size/4.5
 
 
 def strip_name(filename):
@@ -16,12 +28,10 @@ def strip_name(filename):
 def set_style():
     sns.set_context("paper")
 
-    sns.set(font="serif")
-
-    sns.set_style(
-        "whitegrid",
-        {"font.family": "serif", "font.serif": ["Times", "Palatino", "serif"]},
-    )
+    sns.set_style("ticks", {
+        "font.family": "serif",
+        "font.serif": ["Helvetica", "sans-serif"]
+    })
 
 
 def extract_history(name, function="Full"):
@@ -69,35 +79,48 @@ NAME_DICT = {
 
 
 def plot_results(ax, name, function):
-    result_dict = extract_history(f"{path}/{name}", function)
+    result_dict = extract_history(f"{sys.argv[1]}/{name}", function)
     train_loss, test_loss = result_dict["train"], result_dict["test"]
     n_epochs = len(train_loss)
     if "PBE" in name:
         ax.plot(
-            range(1, n_epochs + 1), train_loss, label="Train Loss", lw=4, color="blue"
+            range(1, n_epochs + 1), train_loss, label="Train Loss", lw=lw, color="blue"
         )
         ax.plot(
             range(1, n_epochs + 1),
             test_loss,
             label="Validation Loss",
             alpha=0.7,
-            lw=4,
+            lw=lw,
             color="green",
         )
+        major_tick_range = 100
+        minor_tick_range = 50
     else:
         ax.plot(
-            range(1, n_epochs + 1), train_loss, label="Train Loss", lw=2, color="blue"
+            range(1, n_epochs + 1), train_loss, label="Train Loss", lw=lw/2, color="blue"
         )
         ax.plot(
             range(1, n_epochs + 1),
             test_loss,
             label="Validation Loss",
             alpha=0.7,
-            lw=2,
+            lw=lw/2,
             color="green",
         )
-    ax.grid()
-    ax.set_xlabel("Epoch", fontsize=30)
+        major_tick_range = 300
+        minor_tick_range = 100
+
+    major_ticks = np.arange(0, n_epochs, major_tick_range)
+    minor_ticks = np.arange(0, n_epochs, minor_tick_range)
+    ax.set_xticks(major_ticks)
+    ax.set_xticks(minor_ticks, minor=True)
+    ax.xaxis.set_tick_params(width=ticks, length=tick_length)
+    ax.yaxis.set_tick_params(width=ticks, length=tick_length)
+    ax.xaxis.set_tick_params(width=ticks*2/3, length=tick_length*2/3, which='minor')
+    ax.yaxis.set_tick_params(width=ticks*2/3, length=tick_length*2/3, which='minor')
+    ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+
 
     ax.set_xlim(0, n_epochs + 1)
     if "8x32" in name and "XALPHA" in name:
@@ -115,7 +138,7 @@ def plot_results(ax, name, function):
             label="PBE Train Loss",
             color="blue",
             linestyle="--",
-            lw=4,
+            lw=lw,
         )
         ax.plot(
             [0, n_epochs + 1],
@@ -123,7 +146,7 @@ def plot_results(ax, name, function):
             label="PBE Validation Loss",
             color="green",
             linestyle="--",
-            lw=4,
+            lw=lw,
         )
     elif function == "Reaction":
         ax.plot(
@@ -132,7 +155,7 @@ def plot_results(ax, name, function):
             label="Xα Train Loss",
             color="blue",
             linestyle="--",
-            lw=4,
+            lw=lw,
         )
         ax.plot(
             [0, n_epochs + 1],
@@ -140,23 +163,24 @@ def plot_results(ax, name, function):
             label="Xα Validation Loss",
             color="green",
             linestyle="--",
-            lw=4,
+            lw=lw,
         )
     return min(min(train_loss), min(test_loss)), max(max(train_loss), max(test_loss))
-
 
 filenames = list(os.walk(path))[0][2]
 
 offset = len(filenames)
 set_style()
+rc('font', **{'family': 'sans-serif', 'serif': ['Helvetica']})
+rc('axes', linewidth=ticks)
 filenames.sort(key=lambda x: ("_".join(x.split("_")[:3]), float(x.split("_")[4])))
 for i in range(0, len(filenames), offset):
     mins_reaction = []
     maxs_reaction = []
     mins_local = []
     maxs_local = []
-    names = filenames[i : i + offset]
-    fig, ax = plt.subplots(2, offset, figsize=[60, 30])
+    names = filenames[i: i + offset]
+    fig, ax = plt.subplots(2, offset, figsize=[7, 4], dpi=1200, sharey='row', sharex='col')
     title = " ".join(strip_name(filenames[i]).split()[:5])
 
     for j in range(offset):
@@ -166,8 +190,6 @@ for i in range(0, len(filenames), offset):
         mn, mx = plot_results(ax[1][j], names[j], "Local")
         mins_local.append(mn)
         maxs_local.append(mx)
-        ax[0, j].grid()
-        ax[1, j].grid()
     min_local = min(mins_local) * 0.9
     max_local = (
         min(max(maxs_local) * 1.1, 0.2)
@@ -181,15 +203,30 @@ for i in range(0, len(filenames), offset):
         else min(max(maxs_reaction) * 1.1, 15)
     )
     for j in range(offset):
-        title = " ".join(strip_name(filenames[j]).split()[7])
-        ax[0][j].set_title(f"Ω = {title}", fontsize=50, y=1.05)
+        title = "".join(strip_name(filenames[j]).split()[7])
+        ax[0][j].set_title(f"Ω={title}", fontsize=size, y=1.05)
         ax[0][j].set_ylim([min_reaction, max_reaction])
         ax[1][j].set_ylim([min_local, max_local])
-        ax[0, j].tick_params(axis="x", labelsize=20)
-        ax[1, j].tick_params(axis="x", labelsize=20)
-        ax[0, j].tick_params(axis="y", labelsize=20)
-        ax[1, j].tick_params(axis="y", labelsize=20)
+        ax[0, j].tick_params(axis="both", labelsize=size**2/20, pad=size/5)
+        ax[1, j].tick_params(axis="both", labelsize=size**2/20, pad=size/5)
 
-    ax[0][0].set_ylabel("Reaction MAE Loss, kcal/mol", fontsize=40)
-    ax[1][0].set_ylabel("Local Loss, kcal/mol", fontsize=40)
-plt.savefig("Figure.jpg", dpi=600, format="jpg")
+
+fig.text(0.5, 0.04, 'Epoch', ha='center', size=size)
+fig.text(0.04, 0.95, 'Reaction MAE Loss, kcal/mol', va='top', rotation='vertical', size=size*0.9)
+fig.text(0.04, 0.12, 'Local Loss, kcal/mol', va='bottom', rotation='vertical', size=size*0.9)
+
+blue = Line2D([0], [0], color='blue', lw=lw*2, label='Train')
+green = Line2D([0], [0], color='green', lw=lw*2, label='Validation')
+
+straight = Line2D([0], [0], color='black', lw=lw*2, label='NN')
+dashed = Line2D([0], [0], color='black', lw=lw*2, label='Non-NN', linestyle='dashed')
+
+train_test = plt.legend(handles=[blue, green], loc='lower right', fontsize=size*5/6, fancybox=False, title="Dataset", title_fontsize=size, bbox_to_anchor=(0.92, -0.06), bbox_transform=fig.transFigure, ncol=2, frameon=False)
+NN_non_NN = plt.legend(handles=[straight, dashed], loc='lower left', fontsize=size*5/6, fancybox=False, title="Functional", title_fontsize=size, bbox_to_anchor=(0.06, -0.06), bbox_transform=fig.transFigure, ncol=2, frameon=False)
+fig.add_artist(train_test)
+fig.add_artist(NN_non_NN)
+
+functional = filenames[0].split("_")[0]
+N = len(filenames)
+
+plt.savefig(f"Figure_plot_{functional}-{N}.png", dpi=1200, bbox_inches='tight')

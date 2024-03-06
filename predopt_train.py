@@ -1,6 +1,6 @@
 import gc
 import pickle
-import sys
+from optparse import OptionParser
 
 import mlflow
 import numpy as np
@@ -12,7 +12,7 @@ from dataset import collate_fn, collate_fn_predopt
 from NN_models import MLOptimizer
 from predopt import DatasetPredopt, true_constants_PBE
 from prepare_data import load_chk
-from reaction_energy_calculation import (backsplit, calculate_reaction_energy,
+from reaction_energy_calculation import (calculate_reaction_energy,
                                          get_local_energies)
 from utils import log_params, set_random_seed
 
@@ -20,13 +20,35 @@ set_random_seed(41)
 
 data, data_train, data_test = load_chk(path="checkpoints")
 
+parser = OptionParser()
+parser.add_option('--Name', type=str,
+                  help="Name of the functional",
+                  default="PBE_8_32")
+parser.add_option('--N_preopt', type=int,
+                  default=50,
+                  help="Number of pre-optimization epochs")
+parser.add_option('--N_train', type=int,
+                  default=184,
+                  help="Number of training epochs")
+parser.add_option('--Batch_size', type=int,
+                  default=8,
+                  help="Number of reactions in a batch")
+parser.add_option('--Dropout', type=float,
+                  default=0.4,
+                  help="Dropout rate during training")
+parser.add_option('--Omega', type=float,
+                  default=0.0412,
+                  help="Omega value in the loss function")
+
+(Opts, args) = parser.parse_args()
+
 name, n_predopt, n_train, batch_size, dropout, omega = (
-    sys.argv[1],
-    int(sys.argv[2]),
-    int(sys.argv[3]),
-    int(sys.argv[4]),
-    float(sys.argv[5]),
-    float(sys.argv[6]),
+    Opts.Name,
+    Opts.N_preopt,
+    Opts.N_train,
+    Opts.Batch_size,
+    Opts.Dropout,
+    Opts.Omega,
 )
 
 if "PBE" in name:
@@ -48,11 +70,11 @@ model = MLOptimizer(
     num_layers=num_layers, h_dim=h_dim, nconstants=nconstants, dropout=dropout, DFT=dft
 ).to(device)
 
-# load dispersion corrections
+# Load dispersion corrections.
 with open("./dispersions/dispersions.pickle", "rb") as handle:
     dispersions = pickle.load(handle)
 
-
+# Describe custom pytorch Dataset.
 class Dataset(torch.utils.data.Dataset):
     def __init__(self, data):
         self.data = data
@@ -64,7 +86,7 @@ class Dataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.data.keys())
 
-
+# Load train, test and pre-optimization dataloaders.
 train_set = Dataset(data=data_train)
 train_dataloader = torch.utils.data.DataLoader(
     train_set,
@@ -74,7 +96,6 @@ train_dataloader = torch.utils.data.DataLoader(
     shuffle=True,
     collate_fn=collate_fn,
 )
-
 test_set = Dataset(data=data_test)
 test_dataloader = torch.utils.data.DataLoader(
     test_set,
@@ -84,9 +105,6 @@ test_dataloader = torch.utils.data.DataLoader(
     shuffle=True,
     collate_fn=collate_fn,
 )
-
-criterion = nn.MSELoss()
-
 train_predopt_set = DatasetPredopt(data=data, dft=dft)
 train_predopt_dataloader = torch.utils.data.DataLoader(
     train_predopt_set,
@@ -96,6 +114,8 @@ train_predopt_dataloader = torch.utils.data.DataLoader(
     shuffle=True,
     collate_fn=collate_fn_predopt,
 )
+
+criterion = nn.MSELoss()
 
 mlflow.set_experiment(name)
 name += "_" + str(dropout)
@@ -118,6 +138,7 @@ reload(dataset)
 
 from predopt import predopt
 
+# Pre-optimize the model.
 train_loss_mse, train_loss_mae = predopt(
     model,
     criterion,
@@ -127,7 +148,6 @@ train_loss_mse, train_loss_mae = predopt(
     n_epochs=n_predopt,
     accum_iter=1,
 )
-
 log_params(model, train_loss_mse, train_loss_mae, name=f"{name}_predopt", predopt=True)
 
 torch.cuda.empty_cache()
@@ -142,7 +162,7 @@ mae = nn.L1Loss()
 def exc_loss(reaction, pred_constants, dft="PBE", true_constants=true_constants_PBE):
     HARTREE2KCAL = 627.5095
 
-    # turn backsplit indices into slices
+    # Turn backsplit indices into slices.
     backsplit_ind = reaction["backsplit_ind"].to(torch.int32)
     indices = list(
         zip(
@@ -152,28 +172,28 @@ def exc_loss(reaction, pred_constants, dft="PBE", true_constants=true_constants_
     )
     n_molecules = len(indices)
 
-    # initialize loss
+    # Initialize loss.
     loss = torch.tensor(0.0, requires_grad=True).to(device)
 
-    # calculate predicted local energies
+    # Calculate predicted local energies.
     predicted_local_energies = get_local_energies(
         reaction, pred_constants, device, rung=rung, dft=dft
     )["Local_energies"]
 
-    # split them into systems
+    # Split them into systems.
     predicted_local_energies = [
         predicted_local_energies[start:stop] for start, stop in indices
     ]
 
-    # calculate local PBE energies
+    # Calculate local PBE energies.
     true_local_energies = get_local_energies(
         reaction, true_constants.to(device), device, rung="GGA", dft="PBE"
     )["Local_energies"]
 
-    # split them into systems
+    # Split them into systems.
     true_local_energies = [true_local_energies[start:stop] for start, stop in indices]
 
-    # calculate local energy loss
+    # Calculate local energy loss.
     for i in range(n_molecules):
         loss += (
             1
@@ -231,20 +251,16 @@ def train(
                     f"{X_batch['Components']} pred {reaction_energy.item():4f} true {y_batch.item():4f}"
                 )
 
-            # calculate local energy loss
             local_loss = exc_loss(X_batch, predictions, dft=dft)
-
-            # calculate mse loss
             reaction_mse_loss = criterion(reaction_energy, y_batch)
 
-            # calculate total loss function
+            # Calculate total loss function
             loss = (1 - omega) / 5 * torch.sqrt(
                 reaction_mse_loss
             ) + omega * local_loss * 100
             MSE = reaction_mse_loss.item()
             MAE = mae(reaction_energy, y_batch).item()
 
-            # log losses
             train_mse_losses_per_epoch.append(MSE)
             train_mae_losses_per_epoch.append(MAE)
             train_exc_losses_per_epoch.append(local_loss.item())
@@ -261,7 +277,6 @@ def train(
             gc.collect()
             torch.cuda.empty_cache()
 
-        # log losses
         train_loss_mse.append(np.mean(train_mse_losses_per_epoch))
         train_loss_mae.append(np.mean(train_mae_losses_per_epoch))
         train_loss_exc.append(np.mean(train_exc_losses_per_epoch))
@@ -278,7 +293,6 @@ def train(
         test_exc_losses_per_epoch = []
         with torch.no_grad():
             for X_batch, y_batch in progress_bar_test:
-                # same operations as in training, but without gradient calculations
                 X_batch_grid, y_batch = X_batch["Grid"].to(device), y_batch.to(device)
                 predictions = model(X_batch_grid)
                 local_loss = exc_loss(X_batch, predictions, dft=dft)
@@ -319,7 +333,7 @@ def train(
         )
         print(f"test Local Energy Loss = {test_loss_exc[epoch]:.8f}")
 
-        # save our model every 10 epochs
+        # Save the model every 10 epochs.
         if (epoch + 1) % 10 == 0:
             log_params(
                 model,
@@ -358,5 +372,5 @@ train_loss_mae, test_loss_mae = train(
     omega=omega,
 )
 
-# Log the final model
+# Log the final model.
 log_params(model, train_loss_mae, test_loss_mae, name=f"{name}_final")

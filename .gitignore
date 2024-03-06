@@ -10,3 +10,4 @@ __pycache__
 *.slurm
 *.ipynb
 log_state_dict.py
+model_predopt.py

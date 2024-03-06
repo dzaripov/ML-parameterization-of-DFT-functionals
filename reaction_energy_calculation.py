@@ -11,16 +11,12 @@ def get_local_energies(reaction, constants, device, rung="GGA", dft="PBE"):
     if rung == "LDA":
         if dft == "SVWN3":
             local_energies = f_svwn3(densities, constants)
-        if dft == "pw":
-            local_energies = pw_test(densities, constants)
         if dft == "XALPHA":
             local_energies = F_XALPHA(densities, constants)
     elif rung == "GGA":
         gradients = (reaction["Gradients"]).to(device)
         if dft == "PBE":
             local_energies = F_PBE(densities, gradients, constants, device)
-        elif dft == "PBE_new":
-            local_energies = F_PBE_new(densities, gradients, constants, device)
 
     calc_reaction_data["Local_energies"] = local_energies
     calc_reaction_data["Densities"] = densities
@@ -57,7 +53,7 @@ def integration(reaction, splitted_calc_reaction_data, dispersions=dict()):
                 * (splitted_calc_reaction_data[component]["Weights"])
             )
             + reaction["HF_energies"][i]
-        )  #                                             + torch.Tensor(dispersions.get(component,0))
+        )
         if dispersions:
             molecule_energies[component + str(i)] += torch.Tensor(
                 dispersions.get(component, 0)
@@ -89,7 +85,7 @@ def calculate_reaction_energy(
     if local_energies["Local_energies"].isnan().any():
         print(local_energies["Local_energies"].isnan().sum())
         torch.save(local_energies["Local_energies"], "local_energies.pt")
-        raise Error()
+        raise Exception()
     splitted_calc_reaction_data = backsplit(reaction, local_energies)
     molecule_energies = integration(reaction, splitted_calc_reaction_data, dispersions)
     reaction_energy_kcal = get_energy_reaction(reaction, molecule_energies)

@@ -2,18 +2,11 @@ import torch
 
 from utils import catch_nan
 
-# def constants_naming(c_arr):
-
-#     labels = ['A_vwn', 'b_vwn', 'c_vwn', 'x0_vwn', 'A_rpa', 'b_rpa', 'c_rpa', 'x0_rpa', 'params_a_alpha']
-#     values = [c_arr[0:2],c_arr[2:4],c_arr[4:6],c_arr[6:8],c_arr[8:11],c_arr[11:14],c_arr[14:17],c_arr[17:20], c_arr[20]]
-
-#     return {labels[i]: values[i] for i in range(len(labels))}
-
 
 # VWN
 fpp_vwn = 4 / (
     9 * (2 ** (1 / 3) - 1)
-)  # true constant from theory or parametrization parameter????
+)
 
 
 def Q_vwn(b, c):

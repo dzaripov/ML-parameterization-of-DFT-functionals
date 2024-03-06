@@ -19,11 +19,11 @@ def rename_keys(data):
     return data_new
 
 
-def train_split(data, test_size, shuffle=False):
+def train_split(data, test_size, shuffle=False, random_state=42):
     # Returns train and test reaction dictionaries.
     if shuffle:
         keys = list(data.keys())
-        random.shuffle(keys)
+        random.shuffle(keys, random_state=random_state)
         for i in keys:
             data[keys[i]] = data[i]
 
@@ -37,12 +37,12 @@ def train_split(data, test_size, shuffle=False):
     return rename_keys(train), rename_keys(test)
 
 
-def prepare(path="data", test_size=0.2):
+def prepare(path="data", test_size=0.2, random_state=42):
     # Make a single dictionary from the whole dataset.
     data = make_reactions_dict(path=path)
 
     # Train-test split.
-    data_train, data_test = train_split(copy.deepcopy(data), test_size, shuffle=True)
+    data_train, data_test = train_split(copy.deepcopy(data), test_size, shuffle=True, random_state=random_state)
 
     # Stdscaler fit.
     lst = []
@@ -83,3 +83,8 @@ def load_chk(path="checkpoints"):
     with open(f"{path}/data_test.pickle", "rb") as f:
         data_test = pickle.load(f)
     return data, data_train, data_test
+
+
+if __name__ == '__main__':
+    data, data_train, data_test = prepare(path='data', test_size=0.2)
+    save_chk(data, data_train, data_test, path='checkpoints')

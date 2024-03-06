@@ -34,7 +34,7 @@ The model's state is saved every 10 epochs and at the end of training in <em>mlr
 2) Put the *.out* or *.txt* files in one folder and run the following script to reproduce Figures 1-3:
 
 ```
-python visualize.py {name of the folder containing *.out* or *.txt* files}
+python visualize.py {name of the folder containing .out or .txt files}
 ```
 
 ### For Supporting Information

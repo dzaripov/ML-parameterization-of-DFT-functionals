@@ -1,4 +1,5 @@
 import random
+import pickle
 
 import numpy as np
 import torch
@@ -98,6 +99,8 @@ test_dataloader = torch.utils.data.DataLoader(
     collate_fn=collate_fn,
 )
 
+with open("./dispersions/dispersions.pickle", "rb") as handle:
+    dispersions = pickle.load(handle)
 
 mae = nn.L1Loss()
 
@@ -116,17 +119,21 @@ with torch.no_grad():
             constants = (torch.ones(grid_size) * 1.05).view(grid_size, 1)
             local_loss = exc_loss(X_batch, constants, dft="XALPHA")
             energies = calculate_reaction_energy(
-                X_batch, constants, device, rung="LDA", dft="XALPHA", dispersions=dict()
+                X_batch, constants, device, rung="LDA", dft="XALPHA", dispersions=dispersions
             )
             lst.append(mae(energies, y_batch).item())
             local_lst.append(local_loss.item())
         print(f"XAlpha {names[index]} MAE =", np.mean(np.array(lst)))
         print(f"XAlpha {names[index]} Local Loss =", np.mean(np.array(local_lst)))
 
-# XAlpha Train MAE = 16.477375944478567
+# XAlpha Train MAE = 16.477375944478567, with D3(BJ) MAE = 
 # XAlpha Train Local Loss = 0.2030723136178283
-# XAlpha Test MAE = 17.319649955401054
+# XAlpha Test MAE = 17.319649955401054, with D3(BJ) MAE = 
 # XAlpha Test Local Loss = 0.1731235754604523
+        
+
+        
+
 
 with torch.no_grad():
     for index, dataset in enumerate([train_dataloader, test_dataloader]):
@@ -139,10 +146,10 @@ with torch.no_grad():
             ) * true_constants_PBE
             constants = constants
             energies = calculate_reaction_energy(
-                X_batch, constants, device, rung="GGA", dft="PBE", dispersions=dict()
+                X_batch, constants, device, rung="GGA", dft="PBE", dispersions=dispersions
             )
             lst.append(mae(energies, y_batch).item())
         print(f"PBE {names[index]} MAE =", np.mean(np.array(lst)))
 
-# PBE Train MAE = 7.858313535483077
-# PBE Test MAE = 7.649569436119726
+# PBE Train MAE = 7.858313535483077, with D3(BJ) MAE = 8.487527308838311
+# PBE Test MAE = 7.649569436119726, with D3(BJ) MAE = 8.0344873552139

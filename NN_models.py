@@ -59,7 +59,7 @@ class ResBlock(nn.Module):
 
         return self.fc(self.fc(x)) + residue  # skip connection
 
-
+      
 class MLOptimizer(nn.Module):
     def __init__(self, num_layers, h_dim, nconstants, dropout, DFT=None):
         super().__init__()

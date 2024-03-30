@@ -348,7 +348,7 @@ def train(
 from importlib import reload
 
 import NN_models
-import PBE
+import dft_functionals.PBE as PBE
 import reaction_energy_calculation
 import utils
 

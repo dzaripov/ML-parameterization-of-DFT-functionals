@@ -1,2 +1,13 @@
 **/log
 **/data
+**/checkpoints
+**/predopt
+**/mlruns
+__pycache__
+.ipynb_checkpoints
+*.pt
+*.log
+*.slurm
+*.ipynb
+log_state_dict.py
+model_predopt.py

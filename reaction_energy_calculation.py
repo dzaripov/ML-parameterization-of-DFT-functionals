@@ -1,8 +1,8 @@
 import numpy as np
 import torch
 
-from PBE import F_PBE
-from SVWN3 import F_XALPHA, f_svwn3
+from dft_functionals.PBE import F_PBE
+from dft_functionals.SVWN3 import F_XALPHA, f_svwn3
 
 
 def get_local_energies(reaction, constants, device, rung="GGA", dft="PBE"):

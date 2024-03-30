@@ -126,9 +126,9 @@ with torch.no_grad():
         print(f"XAlpha {names[index]} MAE =", np.mean(np.array(lst)))
         print(f"XAlpha {names[index]} Local Loss =", np.mean(np.array(local_lst)))
 
-# XAlpha Train MAE = 16.477375944478567, with D3(BJ) MAE = 
+# XAlpha Train MAE = 16.477375944478567, with D3(BJ) MAE = 16.39645719140075
 # XAlpha Train Local Loss = 0.2030723136178283
-# XAlpha Test MAE = 17.319649955401054, with D3(BJ) MAE = 
+# XAlpha Test MAE = 17.319649955401054, with D3(BJ) MAE = 17.268508094721117
 # XAlpha Test Local Loss = 0.1731235754604523
         
 

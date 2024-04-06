@@ -127,7 +127,7 @@ def f2(rs, z, t, c_arr, device):
 def fH(rs, z, t, c_arr, device):
     eps = 10e-6
     f2_ = f2(rs, z, t, c_arr, device)
-    log = torch.where(f2_ <= -1, torch.log1p(f2_ + eps), torch.log1p(f2_)) # weird infinity
+    log = torch.where(f2_ <= -1, torch.log1p(f2_ - f2_ - 1 + eps), torch.log1p(f2_)) # weird infinity
     res_fH = c_arr[:, 1]*mphi(z)**3*log
     catch_nan(res_fH=res_fH, log=log, f2_=f2_)
     return res_fH

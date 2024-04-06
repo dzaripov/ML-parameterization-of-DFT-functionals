@@ -81,7 +81,7 @@ def g_aux(k, rs, c_arr):
 def g(k, rs, c_arr):
     eps = 1e-6
     g_aux_ = g_aux(k, rs, c_arr)
-    log = torch.log1p(1/(2*c_arr[:, 15:18][:, k]*g_aux_)) + eps
+    log = torch.log1p(1/(2*c_arr[:, 15:18][:, k]*g_aux_ + eps))
     res_g = -2*c_arr[:, 15:18][:, k]*(1 + c_arr[:, 18:21][:, k]*rs) * log
     catch_nan(res_g=res_g, log=log, g_aux_=g_aux_)
     # save_tensors(res_g=res_g, log=log, g_aux_=g_aux_)

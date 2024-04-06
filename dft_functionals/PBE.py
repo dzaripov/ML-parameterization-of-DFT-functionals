@@ -100,8 +100,8 @@ def A(rs, z, t, c_arr, device):
     eps = 1e-30
     f_pw_ = f_pw(rs, z, c_arr)
     mphi_ = c_arr[:, 1]*mphi(z)**3
-    const_87 = torch.Tensor([87]).to(device) # exp(87) = 10**38 - near infinity
-    expm1 = torch.expm1(torch.where(-f_pw_/mphi_ < const_87, -f_pw_/mphi_, const_87))
+    # exp(87) = 10**38 - near infinity
+    expm1 = torch.expm1(torch.where(-f_pw_/mphi_ < 87, -f_pw_/mphi_, -f_pw_/mphi_ + f_pw_/mphi_ + 87))
     res_A = (c_arr[:, 0]/(c_arr[:, 1] * expm1 + eps))
     catch_nan(res_A=res_A, f_pw_=f_pw_, mphi_=mphi_, expm1=expm1, rs=rs, z=z, c_arr=c_arr)
     return res_A

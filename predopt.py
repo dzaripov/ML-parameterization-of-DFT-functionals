@@ -59,6 +59,7 @@ true_constants_PBE = torch.Tensor(
             0.2195149727645171,
             0.8040,
             0.2195149727645171,
+            1.0
         ]
     ]
 )
@@ -107,9 +108,9 @@ def predopt(
             y_batch = torch.tile(y_batch, [X_batch.shape[0], 1]).to(
                 device, non_blocking=True
             )[
-                :, [0, 1, 22, 23, 24, 25]
+                :, [0, 1, 22, 23, 24, 25, 26] # ДОБАВИЛИ ИНДЕКС 26
             ]  # If PBE
-            predictions = model(X_batch)[:, [0, 1, 22, 23, 24, 25]]  # if PBE
+            predictions = model(X_batch)[:, [0, 1, 22, 23, 24, 25, 26]]  # if PBE # ДОБАВИЛИ ИНДЕКС 26
 
             loss = criterion(predictions, y_batch)
             loss.backward()

@@ -66,7 +66,30 @@ elu = torch.nn.ELU()
 """
 Define an nn.Module class for a simple residual block with equal dimensions
 """
+def asymptotic_constraint_operator(f_x, f_x0, f0):
+    """
+    Оператор ˆθ{x0, f0}[f](x) = f(x) - f(x0) + f0.
+    """
+    return f_x - f_x0 + f0
 
+def lagrange_interpolation_operator(f_x_list, x, x0_list, l_func):
+    """
+    Обобщенный оператор интерполяции Лагранжа ˆ из формулы (2).
+    """
+    n_constraints = len(f_x_list)
+    result = 0.0
+    for i in range(n_constraints):
+        term = f_x_list[i]
+        for j in range(n_constraints):
+            if j != i:
+                numerator = l_func(x - x0_list[j])
+                denominator = l_func(x0_list[i] - x0_list[j])
+                term = term * (numerator / denominator)
+        result += term
+    return result
+
+def l_func_tanh_norm(x):
+    return torch.tanh(torch.norm(x, dim=1, keepdim=True) ** 2)
 
 class ResBlock(nn.Module):
     """
@@ -236,8 +259,43 @@ class pcPBEMLOptimizer(nn.Module):
     
     def get_correlation_constants(self, x):
         x_c = self.hidden_layers_c(x)
-        # Теперь возвращаем 3 параметра: beta, gamma, eta, отвечающая за положительность корреляционной 
-        return x_c[:, 0].view(-1, 1), x_c[:, 1].view(-1, 1), x_c[:, 2].view(-1, 1)
+        beta = x_c[:, 0].view(-1, 1)
+        gamma = x_c[:, 1].view(-1, 1)
+        eta_raw = x_c[:, 2].view(-1, 1)  # Сырой выход для eta
+        
+        # Применяем асимптотические ограничения к eta
+        # Определяем точки асимптотики
+        device = x.device
+        
+        # 1. rho -> inf, s -> 0
+        x0_rho_inf = torch.tensor([1e10, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], device=device).unsqueeze(0)
+        
+        # 2. rho -> 1, s -> inf
+        x0_s_inf = torch.tensor([1.0, 1.0, 1e10, 1e10, 1e10, 0.0, 0.0], device=device).unsqueeze(0)
+        
+        # 3. rho -> 1, s -> 0
+        x0_s_zero = torch.tensor([1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0], device=device).unsqueeze(0)
+        
+        x0_list = [x0_rho_inf, x0_s_inf, x0_s_zero]
+        f0_list = [1.0, 1.0, 1.0]  # Во всех случаях eta -> 1
+        
+        # Вычисляем f(x0) для каждой точки асимптотики
+        f_x0_list = []
+        for x0 in x0_list:
+            x0_batch = x0.repeat(x.shape[0], 1)
+            f_x0 = self.hidden_layers_c(x0_batch)[:, 2].view(-1, 1)
+            f_x0_list.append(f_x0)
+        
+        # Применяем оператор ˆθ для каждого ограничения
+        theta_outputs = []
+        for i in range(len(x0_list)):
+            theta_out = asymptotic_constraint_operator(eta_raw, f_x0_list[i], f0_list[i])
+            theta_outputs.append(theta_out)
+        
+        # Применяем интерполяцию Лагранжа
+        eta_constrained = lagrange_interpolation_operator(theta_outputs, x, x0_list, l_func_tanh_norm)
+        
+        return beta, gamma, eta_constrained
     # def get_correlation_constants(self, x):
 
     #     x_c = self.hidden_layers_c(x)
@@ -286,11 +344,11 @@ class pcPBEMLOptimizer(nn.Module):
 
         mu_up, kappa_up, mu_down, kappa_down = self.get_exchange_constants(x)
 
-        beta, gamma, eta_raw = self.get_correlation_constants(x) ###3 параметра а не 2
+        beta, gamma, eta = self.get_correlation_constants(x) ###3 параметра а не 2
 
         beta = self.beta_activation((beta - self.get_correlation_constants(self.all_sigma_zero_beta(x))[0]).view(-1,1))
         gamma = self.shifted_elu((gamma - self.get_correlation_constants(self.all_rho_inf(x))[1]).view(-1,1))
-        eta = self.eta_activation(eta_raw)  # Активируем eta Я не уверен, что без view(-1,1) будет правильно, но посмотрим
+        ###eta = self.eta_activation(eta_raw)  # Активируем eta Я не уверен, что без view(-1,1) будет правильно, но посмотрим
         mu_up = self.shifted_elu((mu_up - self.get_exchange_constants(self.all_sigma_zero(x))[0])).view(-1,1)
         mu_down = self.shifted_elu((mu_down - self.get_exchange_constants(self.all_sigma_zero(x))[2])).view(-1,1)
         kappa_up = self.kappa_activation(kappa_up).view(-1,1)

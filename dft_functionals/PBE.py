@@ -258,14 +258,13 @@ def f2_different(rs, z, t, c_arr, device):
     A_ = A(rs, z, t, c_arr, device)
     f1_ = f1(rs, z, t, A_, c_arr)
     # Используем новый параметр eta = c_arr[:, 26]
-    denominator = c_arr[:, 1] * (A_ * f1_ - c_arr[:, 26] + 1) ###идея в том, чтобы eta (c_arr[:, 26]) меняла знак деноминатора, от чего изменится fH->PBE_C станет знаконеопределенной
+    denominator = c_arr[:, 1] * (A_ * f1_ - c_arr[:, 26] + 1)  # eta меняет знак
     # Защита от численных особенностей
     denominator = torch.where(torch.abs(denominator) < 1e-12, 
                              torch.sign(denominator) * 1e-12, denominator)
     res_f2 = c_arr[:, 0] * f1_ / denominator
     catch_nan(res_f2=res_f2, f1_=f1_, A_=A_)
     return res_f2
-
 def fH_different(rs, z, t, c_arr, device):
     eps = 1e-8
     f2_ = f2_different(rs, z, t, c_arr, device)

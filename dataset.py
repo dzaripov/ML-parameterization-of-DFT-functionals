@@ -41,7 +41,7 @@ def load_ref_energies(path):
         "DBH76": ref(251, 288, path) + ref(291, 328, path),
         "NCCE31": ref(331, 361, path),
         "ABDE4": ref(206, 209, path),
-        # "AE17":ref(375, 391),
+        "AE17": ref(375, 391, path),
         "pTC13": ref(232, 234, path) + ref(237, 241, path) + ref(244, 248, path),
     }
     return ref_e
@@ -93,7 +93,7 @@ def get_compounds_coefs_energy(reactions, energies):
                     {'Components': [...], 'Coefficients: [...]', 'Energy: float', Database: str
                                 }
                             }
-    which is a dictionaty from load_component_names with Energy information added
+    which is a dictionary from load_component_names with Energy information added
     """
     data_final = dict()
     i = 0
@@ -177,9 +177,66 @@ def add_reaction_info_from_h5(reaction, path):
     X = np.copy(X)
     X[:, 3] = X[:, 2] + X[:, 4] + 2 * X[:, 3]
 
-    # log grid data
-    eps = 10e-8
-    X = np.log(X + eps)
+    # Now X is rho_a, rho_b, sigma_aa, norm_sigma, sigma_bb, taua, taub
+
+    eps_rho = 1e-27
+    #    eps_sigma = 10**(-56/3)
+
+    n_alpha = densities[:, 0] ** (1 / 3)
+    n_beta = densities[:, 1] ** (1 / 3)
+
+    s_alpha = (
+        np.where(
+            densities[:, 0] > 0,
+            np.sqrt(sigmas[:, 0]) / (densities[:, 0] + eps_rho) ** (4 / 3),
+            0,
+        )
+        / (3 * np.pi**2) ** (1 / 3)
+        / 2
+    )
+    s_norm = (
+        np.where(
+            densities[:, 0] + densities[:, 1] > 0,
+            np.sqrt(X[:, 3]) / (densities[:, 0] + densities[:, 1] + eps_rho) ** (4 / 3),
+            0,
+        )
+        / (3 * np.pi**2) ** (1 / 3)
+        / 2
+    )
+    s_beta = (
+        np.where(
+            densities[:, 1] > 0,
+            np.sqrt(sigmas[:, 2]) / (densities[:, 1] + eps_rho) ** (4 / 3),
+            0,
+        )
+        / (3 * np.pi**2) ** (1 / 3)
+        / 2
+    )
+
+    tau_tf_alpha = (
+        3 / 10 * (3 * np.pi**2) ** (2 / 3) * (densities[:, 0] + eps_rho) ** (5 / 3)
+    )
+    tau_tf_beta = (
+        3 / 10 * (3 * np.pi**2) ** (2 / 3) * (densities[:, 1] + eps_rho) ** (5 / 3)
+    )
+    tau_w_alpha = sigmas[:, 0] / (8 * (densities[:, 0] + eps_rho))
+    tau_w_beta = sigmas[:, 2] / (8 * (densities[:, 1] + eps_rho))
+
+    tau_alpha = (X[:, 5] - tau_w_alpha) / tau_tf_alpha
+    tau_beta = (X[:, 6] - tau_w_beta) / tau_tf_beta
+
+    # tanh grid data
+    X = np.column_stack([n_alpha, n_beta, s_alpha, s_norm, s_beta, tau_alpha, tau_beta])
+    #    X = X/(1+X)
+    #    X = np.log(1+X)
+    #    X[:, 2:5] = X[:, 2:5] * 0.1 # For better scale in the relevant rs<10 region
+    X[X < 0] = 0
+    X[:, 5:] = X[:, 5:] - 1
+    X = np.tanh(X)
+
+    print("Mean", np.median(X, axis=0))
+    print("Min", np.min(X, axis=0))
+    print("Max", np.max(X, axis=0))
 
     backsplit_ind = np.array(backsplit_ind)
 
@@ -224,8 +281,10 @@ def collate_fn(data):
         energies.append(energy)
         reaction.pop("Energy", None)
         reactions.append(reaction)
-        torch_tensor_energy = torch.tensor(energies)
-        reactions_stacked = stack_reactions(reactions)
+
+    torch_tensor_energy = torch.tensor(energies)
+    reactions_stacked = stack_reactions(reactions)
+
     del energies, reactions, data
     return reactions_stacked, torch_tensor_energy
 
@@ -238,6 +297,6 @@ def collate_fn_predopt(data):
     reactions = []
     for reaction, constant in data:
         reactions.append(reaction)
-        reactions_stacked = stack_reactions(reactions)
+    reactions_stacked = stack_reactions(reactions)
     del reactions, data
     return reactions_stacked, constant

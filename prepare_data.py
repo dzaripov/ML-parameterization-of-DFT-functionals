@@ -2,9 +2,8 @@ import copy
 import pickle
 import random
 
-import numpy as np
 import torch
-from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import StratifiedKFold
 
 from dataset import make_reactions_dict
 
@@ -20,20 +19,77 @@ def rename_keys(data):
 
 
 def train_split(data, test_size, shuffle=False, random_state=42):
+    random.seed(random_state)
     # Returns train and test reaction dictionaries.
-    if shuffle:
-        keys = list(data.keys())
-        random.shuffle(keys, random_state=random_state)
-        for i in keys:
-            data[keys[i]] = data[i]
+    X = []
+    y = []
+    for key in data:
+        X.append(key)
+        y.append(data[key]["Database"])
+    skf = StratifiedKFold(n_splits=5, shuffle=shuffle, random_state=random_state)
+
+    it = skf.split(X, y)
+    train_index, test_index = next(it)
 
     train, test = dict(), dict()
-    border = round(len(data.keys()) * (1 - test_size))
-    for i in range(len(data.keys())):
-        if i <= border:
+
+    for i in train_index:
+
+        database = data[i]["Database"]
+        components = data[i]["Components"]
+
+        if (
+            (
+                database == "AE17"
+                and components[0]
+                not in [
+                    "H_ae17",
+                    "He_ae17",
+                    "Li_ae17",
+                    "Be_ae17",
+                    "N_ae17",
+                    "Ne_ae17",
+                    "Na_ae17",
+                    "Mg_ae17",
+                    "P_ae17",
+                    "Ar_ae17",
+                ]
+            )
+            or (
+                "HCl_htbh38"
+                in components  # This reaction is in diet-GMTKN55, so do not train on it
+            )
+            or (
+                "HCl_mgae109"
+                in components  # This reaction is in diet-GMTKN55, so do not train on it
+            )
+        ):
+            print(data[i]["Components"])
+            test[i] = data[i]
+        else:
+            train[i] = data[i]
+
+    for i in test_index:
+
+        database = data[i]["Database"]
+        components = data[i]["Components"]
+
+        if database == "AE17" and components[0] in [
+            "H_ae17",
+            "He_ae17",
+            "Li_ae17",
+            "Be_ae17",
+            "N_ae17",
+            "Ne_ae17",
+            "Na_ae17",
+            "Mg_ae17",
+            "P_ae17",
+            "Ar_ae17",
+        ]:
             train[i] = data[i]
         else:
             test[i] = data[i]
+
     return rename_keys(train), rename_keys(test)
 
 
@@ -42,24 +98,13 @@ def prepare(path="data", test_size=0.2, random_state=42):
     data = make_reactions_dict(path=path)
 
     # Train-test split.
-    data_train, data_test = train_split(copy.deepcopy(data), test_size, shuffle=True, random_state=random_state)
+    data_train, data_test = train_split(
+        copy.deepcopy(data), test_size, shuffle=True, random_state=random_state
+    )
 
-    # Stdscaler fit.
-    lst = []
-    for i in range(len(data_train)):
-        lst.append(data_train[i]["Grid"])
-
-    train_grid_data = torch.cat(lst)
-    stdscaler = StandardScaler()
-    stdscaler.fit(np.array(train_grid_data))
-
-    # Check mean and var for later SCF calculations
-    print("mean:", stdscaler.mean_)
-    print("std:", np.sqrt(stdscaler.var_))
-    # Stdscaler transform.
     for data_t in (data_train, data_test):
         for i in range(len(data_t)):
-            data_t[i]["Grid"] = torch.Tensor(stdscaler.transform(data_t[i]["Grid"]))
+            data_t[i]["Grid"] = torch.Tensor(data_t[i]["Grid"])
 
     return data, data_train, data_test
 
@@ -85,6 +130,6 @@ def load_chk(path="checkpoints"):
     return data, data_train, data_test
 
 
-if __name__ == '__main__':
-    data, data_train, data_test = prepare(path='data', test_size=0.2)
-    save_chk(data, data_train, data_test, path='checkpoints')
+if __name__ == "__main__":
+    data, data_train, data_test = prepare(path="data", test_size=0.2)
+    save_chk(data, data_train, data_test, path="checkpoints")

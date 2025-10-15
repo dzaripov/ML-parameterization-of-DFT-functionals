@@ -1,12 +1,10 @@
+import numpy as np
 import torch
 
 from utils import catch_nan
 
-
 # VWN
-fpp_vwn = 4 / (
-    9 * (2 ** (1 / 3) - 1)
-)
+fpp_vwn = 4 / (9 * (2 ** (1 / 3) - 1))
 
 
 def Q_vwn(b, c):
@@ -141,7 +139,7 @@ def f_vwn(rs, z, c_arr):
 
 def rs_z_calc(rho):
     eps = 1e-29
-    rs = (3 / ((rho[:, 0] + rho[:, 1] + eps) * (4 * torch.pi))) ** (1 / 3)
+    rs = (3 / ((rho[:, 0] + rho[:, 1] + eps) * (4 * np.pi))) ** (1 / 3)
     z = (rho[:, 0] - rho[:, 1]) / (rho[:, 0] + rho[:, 1] + eps)
     catch_nan(rs=rs, z=z)
     return rs, z
@@ -149,8 +147,8 @@ def rs_z_calc(rho):
 
 # SLATER
 
-LDA_X_FACTOR = -3 / 8 * (3 / torch.pi) ** (1 / 3) * 4 ** (2 / 3)  # param
-RS_FACTOR = (3 / (4 * torch.pi)) ** (1 / 3)
+LDA_X_FACTOR = -3 / 8 * (3 / np.pi) ** (1 / 3) * 4 ** (2 / 3)  # param
+RS_FACTOR = (3 / (4 * np.pi)) ** (1 / 3)
 DIMENSIONS = 3
 
 
@@ -188,9 +186,13 @@ def f_svwn3(rho, c_arr):
 
 
 def F_XALPHA(rho, constant):
+    eps = 1e-29
+
     catch_nan(rho=rho, constant=constant)
-    rs, z = rs_z_calc(rho)
-    res_energy = f_xalpha_x(rs, z, constant)
+    res_energy = (
+        constant[:, 0] * LDA_X_FACTOR * (rho[:, 0] + rho[:, 1] + eps) ** (1 / 3)
+    )
+
     return res_energy
 
 

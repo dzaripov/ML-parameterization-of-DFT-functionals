@@ -6,7 +6,6 @@ from itertools import chain
 from operator import methodcaller
 
 import matplotlib.pyplot as plt
-import mlflow
 import numpy as np
 import torch
 
@@ -40,28 +39,10 @@ def save_tensors(**kwargs):
         torch.save(v, f"log/{k}.pt")
 
 
-def log_params(model, metric1, metric2, name, predopt=False):
-    with mlflow.start_run() as run:
-        if predopt:
-            metric1_name = "train_loss_mse"
-            metric2_name = "train_loss_mae"
-        else:
-            metric1_name = "train_loss_mae"
-            metric2_name = "test_loss_mae"
-        mlflow.pytorch.log_model(model, name)
-        mlflow.log_param("n_epochs", len(metric1))
-        mlflow.log_metric(metric1_name, metric1[-1])
-        mlflow.log_metric(metric2_name, metric2[-1])
-        plt.plot(np.arange(1, len(metric1) + 1), metric1, label=metric1_name)
-        plt.plot(np.arange(1, len(metric1) + 1), metric2, label=metric2_name)
-        plt.legend()
-        plt.xlabel("number of epochs")
-        plt.ylabel("loss")
-        plt.grid()
-        plt.savefig(f"{name}.png")
-        mlflow.log_artifact(f"{name}.png")
-        os.remove(f"./{name}.png")
-        plt.close()
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
 
 
 def retrieve_name(var):
@@ -70,7 +51,8 @@ def retrieve_name(var):
 
 
 def set_random_seed(seed):
-    # seed everything
+    torch.use_deterministic_algorithms(True)
+    os.environ["PYTHONHASHSEED"] = str(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
     torch.manual_seed(seed)
@@ -107,3 +89,62 @@ def stack_reactions(reactions):
     reaction["reaction_indices"] = reaction_indices
     del dict_items
     return dict(reaction)
+
+
+def configure_optimizers(model, learning_rate):
+    """
+    This long function is unfortunately doing something very simple and is being very defensive:
+    We are separating out all parameters of the model into two buckets: those that will experience
+    weight decay for regularization and those that won't (biases, and layernorm/embedding weights).
+    We are then returning the PyTorch optimizer object.
+    """
+    # separate out all parameters to those that will and won't experience regularizing weight decay
+    decay = set()
+    no_decay = set()
+    whitelist_weight_modules = (torch.nn.Linear,)
+    blacklist_weight_modules = (
+        torch.nn.LayerNorm,
+        torch.nn.PReLU,
+        torch.nn.BatchNorm1d,
+    )
+    for mn, m in model.named_modules():
+        for pn, p in m.named_parameters():
+            fpn = "%s.%s" % (mn, pn) if mn else pn  # full param name
+            if pn.endswith("bias"):
+                # all biases will not be decayed
+                no_decay.add(fpn)
+            elif pn.endswith("weight") and isinstance(m, whitelist_weight_modules):
+                # weights of whitelist modules will be weight decayed
+                decay.add(fpn)
+            elif pn.endswith("weight") and isinstance(m, blacklist_weight_modules):
+                # weights of blacklist modules will NOT be weight decayed
+                no_decay.add(fpn)
+
+    param_dict = {pn: p for pn, p in model.named_parameters()}
+    inter_params = decay & no_decay
+    union_params = decay | no_decay
+    assert (
+        len(inter_params) == 0
+    ), "parameters %s made it into both decay/no_decay sets!" % (str(inter_params),)
+    assert (
+        len(param_dict.keys() - union_params) == 0
+    ), "parameters %s were not separated into either decay/no_decay set!" % (
+        str(param_dict.keys() - union_params),
+    )
+    # create the pytorch optimizer object
+    optim_groups = [
+        {
+            "params": [param_dict[pn] for pn in sorted(list(decay))],
+            "weight_decay": 0.01,
+        },
+        {
+            "params": [param_dict[pn] for pn in sorted(list(no_decay))],
+            "weight_decay": 0.0,
+        },
+    ]
+    #    optimizer = torch.optim.AdamW(optim_groups, lr=learning_rate)
+
+    optimizer = torch.optim.RAdam(
+        optim_groups, lr=learning_rate, decoupled_weight_decay=True
+    )
+    return optimizer
